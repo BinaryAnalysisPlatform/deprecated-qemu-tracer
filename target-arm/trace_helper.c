@@ -3,7 +3,7 @@
 #include "cpu.h"
 //#include "exec/def-helper.h"
 #include "helper.h"
-#include "qemu/tracewrap.h"
+#include "tracewrap.h"
 #include "qemu/log.h"
 
 uint32_t HELPER(trace_cpsr_read)(CPUARMState *env)
@@ -28,14 +28,14 @@ void HELPER(trace_cpsr_write)(CPUARMState *env, uint32_t val, uint32_t mask)
     qemu_trace_add_operand(oi, 0x2);
 }
 
-void HELPER(trace_newframe)(CPUARMState *env, uint32_t insn)
+void HELPER(trace_newframe)(CPUARMState *env)
 {
-        qemu_trace_newframe(env->regs[15], 0, insn);
+        qemu_trace_newframe(env->regs[15], 0);
 }
 
-void HELPER(trace_endframe)(CPUARMState *env)
+void HELPER(trace_endframe)(CPUARMState *env, target_ulong old_pc, size_t size)
 {
-        qemu_trace_endframe();
+        qemu_trace_endframe(env, old_pc, size);
 }
 
 OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls)
