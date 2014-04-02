@@ -22,10 +22,8 @@ void do_qemu_set_trace(const char *tracefilename)
 
 void qemu_trace_newframe(uint64_t addr, int thread_id) //, uint32_t insn /*should be bytes*/)
 {
-    //fprintf(stderr, "newframe 0x%08lx\n", (unsigned long int)addr);
     if (open_frame)
     {
-        //qemu_log("left frame open!\n");
         fprintf(stderr, "frame still open! 0x%08lx\n", (long unsigned int)addr);
         qemu_trace_endframe(NULL, 0, 0); 
     }
@@ -77,7 +75,6 @@ void qemu_trace_endframe(CPUArchState *env, target_ulong pc, size_t size)
 {
     if (! open_frame)
         return;
-    //fprintf(stderr, "endframe 0x%08lx\n", (unsigned long int)pc);
     int i = 0;
     StdFrame *sframe = g_frame->std_frame;
     sframe->rawbytes.len = size;
