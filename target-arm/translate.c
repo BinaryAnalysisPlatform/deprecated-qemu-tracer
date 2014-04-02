@@ -3847,6 +3847,17 @@ static int disas_vfp_insn(CPUARMState * env, DisasContext *s, uint32_t insn)
     return 0;
 }
 
+static inline void gen_endframe(DisasContext *s)
+{
+        TCGv_i32 tmp0 = tcg_temp_new_i32();
+        TCGv_i32 tmp1 = tcg_temp_new_i32();
+        tcg_gen_movi_i32(tmp0, s->old_pc);
+        tcg_gen_movi_i32(tmp1, s->insn_size);
+        gen_helper_trace_endframe(cpu_env, tmp0, tmp1);
+        tcg_temp_free_i32(tmp0);
+        tcg_temp_free_i32(tmp1);
+}
+
 static inline void gen_goto_tb(DisasContext *s, int n, target_ulong dest)
 {
     TranslationBlock *tb;
@@ -3864,6 +3875,7 @@ static inline void gen_goto_tb(DisasContext *s, int n, target_ulong dest)
 
 static inline void gen_jmp (DisasContext *s, uint32_t dest)
 {
+    gen_endframe(s);
     if (unlikely(s->singlestep_enabled)) {
         /* An indirect jump so that we still trigger the debug exception.  */
         if (s->thumb)
@@ -7179,6 +7191,7 @@ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
     tcg_gen_extu_i32_i64(cpu_exclusive_test, addr);
     tcg_gen_movi_i32(cpu_exclusive_info,
                      size | (rd << 4) | (rt << 8) | (rt2 << 12));
+    gen_endframe(s);
     gen_exception_insn(s, 4, EXCP_STREX);
 }
 #else
@@ -7344,13 +7357,13 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
 
     insn = arm_ldl_code(env, s->pc, s->bswap_code);
 
-#ifdef HAS_TRACEWRAP
-    tmp = tcg_temp_new_i32();
-    tcg_gen_movi_i32(tmp, insn);
-    gen_helper_trace_newframe(cpu_env, tmp);
-    tcg_temp_free_i32(tmp);
-    gen_helper_log_read_cpsr(cpu_env);
-#endif //HAS_TRACEWRAP
+//#ifdef HAS_TRACEWRAP
+//    tmp = tcg_temp_new_i32();
+//    tcg_gen_movi_i32(tmp, insn);
+//    gen_helper_trace_newframe(cpu_env, tmp);
+//    tcg_temp_free_i32(tmp);
+//    gen_helper_log_read_cpsr(cpu_env);
+//#endif //HAS_TRACEWRAP
 
     s->pc += 4;
 
@@ -7373,6 +7386,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
 
             if (disas_neon_data_insn(env, s, insn))
                 goto illegal_op;
+            s->insn_size = 4;
             return;
         }
         if ((insn & 0x0f100000) == 0x04000000) {
@@ -7382,6 +7396,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
 
             if (disas_neon_ls_insn(env, s, insn))
                 goto illegal_op;
+            s->insn_size =4;
             return;
         }
         if ((insn & 0x0f000e10) == 0x0e000a00) {
@@ -7389,6 +7404,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             if (disas_vfp_insn(env, s, insn)) {
                 goto illegal_op;
             }
+            s->insn_size = 4;
             return;
         }
         if (((insn & 0x0f30f000) == 0x0510f000) ||
@@ -7401,11 +7417,13 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             }
             /* Otherwise PLD; v5TE+ */
             ARCH(5TE);
+            s->insn_size = 4;
             return;
         }
         if (((insn & 0x0f70f000) == 0x0450f000) ||
             ((insn & 0x0f70f010) == 0x0650f000)) {
             ARCH(7);
+            s->insn_size = 4;
             return; /* PLI; V7 */
         }
         if (((insn & 0x0f700000) == 0x04100000) ||
@@ -7413,6 +7431,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             if (!arm_feature(env, ARM_FEATURE_V7MP)) {
                 goto illegal_op;
             }
+            s->insn_size = 4;
             return; /* v7MP: Unallocated memory hint: must NOP */
         }
 
@@ -7424,18 +7443,21 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
                 qemu_log_mask(LOG_UNIMP, "arm: unimplemented setend\n");
                 goto illegal_op;
             }
+            s->insn_size = 4;
             return;
         } else if ((insn & 0x0fffff00) == 0x057ff000) {
             switch ((insn >> 4) & 0xf) {
             case 1: /* clrex */
                 ARCH(6K);
                 gen_clrex(s);
+                s->insn_size = 4;
                 return;
             case 4: /* dsb */
             case 5: /* dmb */
             case 6: /* isb */
                 ARCH(7);
                 /* We don't emulate caches so these are a no-op.  */
+                s->insn_size = 4;
                 return;
             default:
                 goto illegal_op;
@@ -7447,6 +7469,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             }
             ARCH(6);
             gen_srs(s, (insn & 0x1f), (insn >> 23) & 3, insn & (1 << 21));
+            s->insn_size = 4;
             return;
         } else if ((insn & 0x0e50ffe0) == 0x08100a00) {
             /* rfe */
@@ -7488,6 +7511,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
                 tcg_temp_free_i32(addr);
             }
             gen_rfe(s, tmp, tmp2);
+            s->insn_size = 4;
             return;
         } else if ((insn & 0x0e000000) == 0x0a000000) {
             /* branch link and change to thumb (blx <offset>) */
@@ -7505,13 +7529,16 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             val += 4;
             /* protected by ARCH(5); above, near the start of uncond block */
             gen_bx_im(s, val);
+            s->insn_size = 4;
             return;
         } else if ((insn & 0x0e000f00) == 0x0c000100) {
             if (arm_feature(env, ARM_FEATURE_IWMMXT)) {
                 /* iWMMXt register transfer.  */
                 if (env->cp15.c15_cpar & (1 << 1))
-                    if (!disas_iwmmxt_insn(env, s, insn))
+                    if (!disas_iwmmxt_insn(env, s, insn)) {
+                        s->insn_size = 4;
                         return;
+                    }
             }
         } else if ((insn & 0x0fe00000) == 0x0c400000) {
             /* Coprocessor double register transfer.  */
@@ -7522,8 +7549,10 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             uint32_t mask;
             uint32_t val;
             /* cps (privileged) */
-            if (IS_USER(s))
+            if (IS_USER(s)) {
+                s->insn_size = 4;
                 return;
+            }
             mask = val = 0;
             if (insn & (1 << 19)) {
                 if (insn & (1 << 8))
@@ -7542,6 +7571,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             if (mask) {
                 gen_set_psr_im(s, mask, 0, val);
             }
+            s->insn_size = 4;
             return;
         }
         goto illegal_op;
@@ -8723,9 +8753,12 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             break;
         }
     }
-#ifdef HAS_TRACEWRAP
-    gen_helper_trace_endframe(cpu_env);
-#endif //HAS_TRACEWRAP
+//#ifdef HAS_TRACEWRAP
+//    gen_helper_trace_endframe(cpu_env);
+//#endif //HAS_TRACEWRAP
+
+    s->insn_size = 4;
+    return;
 }
 
 /* Return true if this is a Thumb-2 logical op.  */
@@ -8844,6 +8877,7 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
             tcg_gen_movi_i32(tmp2, s->pc | 1);
             store_reg(s, 14, tmp2);
             gen_bx(s, tmp);
+            s->insn_size = 2;
             return 0;
         }
         if (insn & (1 << 11)) {
@@ -8856,6 +8890,7 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
             tcg_gen_movi_i32(tmp2, s->pc | 1);
             store_reg(s, 14, tmp2);
             gen_bx(s, tmp);
+            s->insn_size = 2;
             return 0;
         }
         if ((s->pc & ~TARGET_PAGE_MASK) == 0) {
@@ -8864,6 +8899,7 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
                prefetch abort.  */
             offset = ((int32_t)insn << 21) >> 9;
             tcg_gen_movi_i32(cpu_R[14], s->pc + 2 + offset);
+            s->insn_size = 2;
             return 0;
         }
         /* Fall through to 32-bit decode.  */
@@ -8871,13 +8907,13 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
 
     insn = arm_lduw_code(env, s->pc, s->bswap_code);
 
-#ifdef HAS_TRACEWRAP
-    tmp = tcg_temp_new_i32();
-    tcg_gen_movi_i32(tmp, insn);
-    gen_helper_trace_newframe(cpu_env, tmp);
-    tcg_temp_free_i32(tmp);
-    gen_helper_log_read_cpsr(cpu_env);
-#endif //HAS_TRACEWRAP
+//#ifdef HAS_TRACEWRAP
+//    tmp = tcg_temp_new_i32();
+//    tcg_gen_movi_i32(tmp, insn);
+//    gen_helper_trace_newframe(cpu_env, tmp);
+//    tcg_temp_free_i32(tmp);
+//    gen_helper_log_read_cpsr(cpu_env);
+//#endif //HAS_TRACEWRAP
 
     s->pc += 2;
     insn |= (uint32_t)insn_hw1 << 16;
@@ -9843,12 +9879,15 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
                     /* UNPREDICTABLE, unallocated hint or
                      * PLD/PLDW/PLI (literal)
                      */
+                    s->insn_size = 4;
                     return 0;
                 }
                 if (op1 & 1) {
+                    s->insn_size = 4;
                     return 0; /* PLD/PLDW/PLI or unallocated hint */
                 }
                 if ((op2 == 0) || ((op2 & 0x3c) == 0x30)) {
+                    s->insn_size = 4;
                     return 0; /* PLD/PLDW/PLI or unallocated hint */
                 }
                 /* UNDEF space, or an UNPREDICTABLE */
@@ -9981,6 +10020,7 @@ illegal_op:
 }
 
 static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
+//static size_t disas_thumb_insn(CPUARMState *env, DisasContext *s)
 {
     uint32_t val, insn, op, rm, rn, rd, shift, cond;
     int32_t offset;
@@ -10000,15 +10040,16 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
 
     insn = arm_lduw_code(env, s->pc, s->bswap_code);
 
-#ifdef HAS_TRACEWRAP
-    tmp = tcg_temp_new_i32();
-    tcg_gen_movi_i32(tmp, insn);
-    gen_helper_trace_newframe(cpu_env, tmp);
-    tcg_temp_free_i32(tmp);
-    gen_helper_log_read_cpsr(cpu_env);
-#endif //HAS_TRACEWRAP
+//#ifdef HAS_TRACEWRAP
+//    tmp = tcg_temp_new_i32();
+//    tcg_gen_movi_i32(tmp, insn);
+//    gen_helper_trace_newframe(cpu_env, tmp);
+//    tcg_temp_free_i32(tmp);
+//    gen_helper_log_read_cpsr(cpu_env);
+//#endif //HAS_TRACEWRAP
 
     s->pc += 2;
+    s->insn_size = 2;
 
     switch (insn >> 12) {
     case 0: case 1:
@@ -10710,6 +10751,7 @@ undef32:
 illegal_op:
 undef:
     gen_exception_insn(s, 2, EXCP_UDEF);
+    return;
 }
 
 /* generate intermediate code in gen_opc_buf and gen_opparam_buf for
@@ -10875,6 +10917,8 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
             tcg_gen_debug_insn_start(dc->pc);
         }
 
+        gen_helper_trace_newframe(cpu_env);//, 0);
+        dc->old_pc = dc->pc;
         if (dc->thumb) {
             disas_thumb_insn(env, dc);
             if (dc->condexec_mask) {
@@ -10888,6 +10932,7 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
         } else {
             disas_arm_insn(env, dc);
         }
+        gen_endframe(dc);
 
         if (dc->condjmp && !dc->is_jmp) {
             gen_set_label(dc->condlabel);
@@ -10957,6 +11002,7 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
         gen_set_condexec(dc);
         switch(dc->is_jmp) {
         case DISAS_NEXT:
+            gen_endframe(dc);
             gen_goto_tb(dc, 1, dc->pc);
             break;
         default:
@@ -10981,6 +11027,7 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
         if (dc->condjmp) {
             gen_set_label(dc->condlabel);
             gen_set_condexec(dc);
+            gen_endframe(dc);
             gen_goto_tb(dc, 1, dc->pc);
             dc->condjmp = 0;
         }

@@ -83,7 +83,7 @@ int __clone2(int (*fn)(void *), void *child_stack_base,
 #include <sys/sendfile.h>
 #endif
 #ifdef HAS_TRACEWRAP
-#include "qemu/tracewrap.h"
+#include "tracewrap.h"
 #endif //HAS_TRACEWRAP
 
 #define termios host_termios

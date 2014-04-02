@@ -35,7 +35,7 @@
 #include "qemu/envlist.h"
 #include "elf.h"
 #ifdef HAS_TRACEWRAP
-#include "qemu/tracewrap.h"
+#include "tracewrap.h"
 #endif //HAS_TRACEWRAP
 
 char *exec_path;

@@ -56,8 +56,8 @@ DEF_HELPER_3(cpsr_write, void, env, i32, i32)
 DEF_HELPER_1(cpsr_read, i32, env)
 
 #ifdef HAS_TRACEWRAP
-DEF_HELPER_2(trace_newframe, void, env, i32)
-DEF_HELPER_1(trace_endframe, void, env)
+DEF_HELPER_1(trace_newframe, void, env)
+DEF_HELPER_3(trace_endframe, void, env, i32, i32)
 DEF_HELPER_3(trace_ld, void, env, i32, i32)
 DEF_HELPER_3(trace_st, void, env, i32, i32)
 DEF_HELPER_2(trace_load_reg, void, i32, i32)

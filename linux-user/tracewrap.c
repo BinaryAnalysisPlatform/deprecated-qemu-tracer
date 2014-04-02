@@ -1,4 +1,4 @@
-#include "qemu/tracewrap.h"
+#include "tracewrap.h"
 #include "trace_consts.h"
 #include <string.h>
 
@@ -20,12 +20,14 @@ void do_qemu_set_trace(const char *tracefilename)
         cur_toc_entry = toc;
 }
 
-void qemu_trace_newframe(uint64_t addr, int thread_id, uint32_t insn)
+void qemu_trace_newframe(uint64_t addr, int thread_id) //, uint32_t insn /*should be bytes*/)
 {
+    //fprintf(stderr, "newframe 0x%08lx\n", (unsigned long int)addr);
     if (open_frame)
     {
         //qemu_log("left frame open!\n");
-        qemu_trace_endframe(); 
+        fprintf(stderr, "frame still open! 0x%08lx\n", (long unsigned int)addr);
+        qemu_trace_endframe(NULL, 0, 0); 
     }
     open_frame = 1;
 
@@ -40,10 +42,10 @@ void qemu_trace_newframe(uint64_t addr, int thread_id, uint32_t insn)
     sframe->address = addr;
     sframe->thread_id = thread_id;
 
-    size_t len = sizeof(insn);
-    sframe->rawbytes.len = len;
-    sframe->rawbytes.data = (uint8_t *)malloc(len);
-    memcpy(sframe->rawbytes.data, &insn, len);
+    //size_t len = sizeof(insn);
+    //sframe->rawbytes.len = len;
+    //sframe->rawbytes.data = (uint8_t *)malloc(len);
+    //memcpy(sframe->rawbytes.data, &insn, len);
 
     OperandValueList *ol_in = (OperandValueList *)malloc(sizeof(OperandValueList));
     operand_value_list__init(ol_in);
@@ -71,8 +73,18 @@ void qemu_trace_add_operand(OperandInfo *oi, int inout)
     ol->elem[ol->n_elem - 1] = oi;
 }
 
-void qemu_trace_endframe(void)
+void qemu_trace_endframe(CPUArchState *env, target_ulong pc, size_t size)
 {
+    if (! open_frame)
+        return;
+    //fprintf(stderr, "endframe 0x%08lx\n", (unsigned long int)pc);
+    int i = 0;
+    StdFrame *sframe = g_frame->std_frame;
+    sframe->rawbytes.len = size;
+    sframe->rawbytes.data = (uint8_t *)malloc(size);
+    for (i = 0; i < size; i++)
+	sframe->rawbytes.data[i] = cpu_ldub_code(env, pc+i);
+
     size_t msg_size = frame__get_packed_size(g_frame);
     uint8_t *packed_buffer = (uint8_t *)malloc(msg_size);
     uint64_t packed_size = frame__pack(g_frame, packed_buffer);
