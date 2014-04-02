@@ -82,6 +82,9 @@ int __clone2(int (*fn)(void *), void *child_stack_base,
 #ifdef CONFIG_SENDFILE
 #include <sys/sendfile.h>
 #endif
+#ifdef HAS_TRACEWRAP
+#include "qemu/tracewrap.h"
+#endif //HAS_TRACEWRAP
 
 #define termios host_termios
 #define winsize host_winsize
@@ -7108,6 +7111,9 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef TARGET_GPROF
         _mcleanup();
 #endif
+#ifdef HAS_TRACEWRAP
+        qemu_trace_finish(arg1);
+#endif //HAS_TRACEWRAP
         gdb_exit(cpu_env, arg1);
         ret = get_errno(exit_group(arg1));
         break;

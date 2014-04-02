@@ -55,6 +55,19 @@ DEF_HELPER_1(wfe, void, env)
 DEF_HELPER_3(cpsr_write, void, env, i32, i32)
 DEF_HELPER_1(cpsr_read, i32, env)
 
+#ifdef HAS_TRACEWRAP
+DEF_HELPER_2(trace_newframe, void, env, i32)
+DEF_HELPER_1(trace_endframe, void, env)
+DEF_HELPER_3(trace_ld, void, env, i32, i32)
+DEF_HELPER_3(trace_st, void, env, i32, i32)
+DEF_HELPER_2(trace_load_reg, void, i32, i32)
+DEF_HELPER_2(trace_store_reg, void, i32, i32)
+DEF_HELPER_3(trace_cpsr_write, void, env, i32, i32)
+DEF_HELPER_1(trace_cpsr_read, i32, env)
+DEF_HELPER_1(log_read_cpsr, void, env)
+DEF_HELPER_1(log_store_cpsr, void, env)
+#endif //HAS_TRACEWRAP
+
 DEF_HELPER_3(v7m_msr, void, env, i32, i32)
 DEF_HELPER_2(v7m_mrs, i32, env, i32)
 
@@ -520,3 +533,4 @@ DEF_HELPER_FLAGS_3(crc32c, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32)
 #endif
 
 #include "exec/def-helper.h"
+

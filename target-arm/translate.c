@@ -141,6 +141,11 @@ static void load_reg_var(DisasContext *s, TCGv_i32 var, int reg)
     } else {
         tcg_gen_mov_i32(var, cpu_R[reg]);
     }
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(t,var);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
 }
 
 /* Create a new temporary and set it to the value of a CPU register.  */
@@ -155,6 +160,11 @@ static inline TCGv_i32 load_reg(DisasContext *s, int reg)
    marked as dead.  */
 static void store_reg(DisasContext *s, int reg, TCGv_i32 var)
 {
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(reg);
+    gen_helper_trace_store_reg(t, var);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
     if (reg == 15) {
         tcg_gen_andi_i32(var, var, ~1);
         s->is_jmp = DISAS_JUMP;
@@ -347,6 +357,9 @@ static void gen_add16(TCGv_i32 t0, TCGv_i32 t1)
 static void gen_set_CF_bit31(TCGv_i32 var)
 {
     tcg_gen_shri_i32(cpu_CF, var, 31);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* Set N and Z flags from var.  */
@@ -354,6 +367,9 @@ static inline void gen_logic_CC(TCGv_i32 var)
 {
     tcg_gen_mov_i32(cpu_NF, var);
     tcg_gen_mov_i32(cpu_ZF, var);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* T0 += T1 + CF.  */
@@ -361,6 +377,9 @@ static void gen_adc(TCGv_i32 t0, TCGv_i32 t1)
 {
     tcg_gen_add_i32(t0, t0, t1);
     tcg_gen_add_i32(t0, t0, cpu_CF);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* dest = T0 + T1 + CF. */
@@ -368,6 +387,9 @@ static void gen_add_carry(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
 {
     tcg_gen_add_i32(dest, t0, t1);
     tcg_gen_add_i32(dest, dest, cpu_CF);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* dest = T0 - T1 + CF - 1.  */
@@ -376,6 +398,9 @@ static void gen_sub_carry(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_sub_i32(dest, t0, t1);
     tcg_gen_add_i32(dest, dest, cpu_CF);
     tcg_gen_subi_i32(dest, dest, 1);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* dest = T0 + T1. Compute C, N, V and Z flags */
@@ -390,6 +415,9 @@ static void gen_add_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_andc_i32(cpu_VF, cpu_VF, tmp);
     tcg_temp_free_i32(tmp);
     tcg_gen_mov_i32(dest, cpu_NF);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* dest = T0 + T1 + CF.  Compute C, N, V and Z flags */
@@ -418,6 +446,9 @@ static void gen_adc_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_andc_i32(cpu_VF, cpu_VF, tmp);
     tcg_temp_free_i32(tmp);
     tcg_gen_mov_i32(dest, cpu_NF);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* dest = T0 - T1. Compute C, N, V and Z flags */
@@ -433,6 +464,9 @@ static void gen_sub_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_and_i32(cpu_VF, cpu_VF, tmp);
     tcg_temp_free_i32(tmp);
     tcg_gen_mov_i32(dest, cpu_NF);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* dest = T0 + ~T1 + CF.  Compute C, N, V and Z flags */
@@ -442,6 +476,9 @@ static void gen_sbc_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_not_i32(tmp, t1);
     gen_adc_CC(dest, t0, tmp);
     tcg_temp_free_i32(tmp);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 #define GEN_SHIFT(name)                                               \
@@ -495,6 +532,9 @@ static void shifter_out_im(TCGv_i32 var, int shift)
             tcg_gen_andi_i32(cpu_CF, cpu_CF, 1);
         }
     }
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* Shift by immediate.  Includes special handling for shift == 0.  */
@@ -545,6 +585,9 @@ static inline void gen_arm_shift_im(TCGv_i32 var, int shiftop,
             tcg_temp_free_i32(tmp);
         }
     }
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 };
 
 static inline void gen_arm_shift_reg(TCGv_i32 var, int shiftop,
@@ -823,8 +866,10 @@ static inline void store_reg_from_load(CPUARMState *env, DisasContext *s,
  * These functions work like tcg_gen_qemu_{ld,st}* except
  * that the address argument is TCGv_i32 rather than TCGv.
  */
+
 #if TARGET_LONG_BITS == 32
 
+#ifndef HAS_TRACEWRAP
 #define DO_GEN_LD(SUFF, OPC)                                             \
 static inline void gen_aa32_ld##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
 {                                                                        \
@@ -836,6 +881,21 @@ static inline void gen_aa32_st##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
 {                                                                        \
     tcg_gen_qemu_st_i32(val, addr, index, OPC);                          \
 }
+#else //HAS_TRACEWRAP
+#define DO_GEN_LD(SUFF, OPC)                                             \
+static inline void gen_aa32_ld##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
+{                                                                        \
+    tcg_gen_qemu_ld_i32(val, addr, index, OPC);                          \
+    gen_helper_trace_ld(cpu_env, val, addr);                               \
+}
+
+#define DO_GEN_ST(SUFF, OPC)                                             \
+static inline void gen_aa32_st##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
+{                                                                        \
+    tcg_gen_qemu_st_i32(val, addr, index, OPC);                          \
+    gen_helper_trace_st(cpu_env, val, addr);                               \
+}
+#endif //HAS_TRACEWRAP
 
 static inline void gen_aa32_ld64(TCGv_i64 val, TCGv_i32 addr, int index)
 {
@@ -7056,6 +7116,9 @@ static void gen_logicq_cc(TCGv_i32 lo, TCGv_i32 hi)
 {
     tcg_gen_mov_i32(cpu_NF, hi);
     tcg_gen_or_i32(cpu_ZF, lo, hi);
+#ifdef HAS_TRACEWRAP
+    gen_helper_log_store_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* Load/Store exclusive instructions are implemented by remembering
@@ -7280,6 +7343,15 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
     TCGv_i64 tmp64;
 
     insn = arm_ldl_code(env, s->pc, s->bswap_code);
+
+#ifdef HAS_TRACEWRAP
+    tmp = tcg_temp_new_i32();
+    tcg_gen_movi_i32(tmp, insn);
+    gen_helper_trace_newframe(cpu_env, tmp);
+    tcg_temp_free_i32(tmp);
+    gen_helper_log_read_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
+
     s->pc += 4;
 
     /* M variants do not implement ARM mode.  */
@@ -8460,6 +8532,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             if (insn & (1 << 20)) {
                 /* load */
                 tmp = tcg_temp_new_i32();
+                //gen_set_pc_im(s, s->pc);
                 if (insn & (1 << 22)) {
                     gen_aa32_ld8u(tmp, tmp2, i);
                 } else {
@@ -8650,6 +8723,9 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             break;
         }
     }
+#ifdef HAS_TRACEWRAP
+    gen_helper_trace_endframe(cpu_env);
+#endif //HAS_TRACEWRAP
 }
 
 /* Return true if this is a Thumb-2 logical op.  */
@@ -8794,6 +8870,15 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
     }
 
     insn = arm_lduw_code(env, s->pc, s->bswap_code);
+
+#ifdef HAS_TRACEWRAP
+    tmp = tcg_temp_new_i32();
+    tcg_gen_movi_i32(tmp, insn);
+    gen_helper_trace_newframe(cpu_env, tmp);
+    tcg_temp_free_i32(tmp);
+    gen_helper_log_read_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
+
     s->pc += 2;
     insn |= (uint32_t)insn_hw1 << 16;
 
@@ -9914,6 +9999,15 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
     }
 
     insn = arm_lduw_code(env, s->pc, s->bswap_code);
+
+#ifdef HAS_TRACEWRAP
+    tmp = tcg_temp_new_i32();
+    tcg_gen_movi_i32(tmp, insn);
+    gen_helper_trace_newframe(cpu_env, tmp);
+    tcg_temp_free_i32(tmp);
+    gen_helper_log_read_cpsr(cpu_env);
+#endif //HAS_TRACEWRAP
+
     s->pc += 2;
 
     switch (insn >> 12) {

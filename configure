@@ -324,6 +324,7 @@ tpm="no"
 libssh2=""
 vhdx=""
 quorum="no"
+tracewrap="no"
 
 # parse CC options first
 for opt do
@@ -748,6 +749,13 @@ for opt do
   ;;
   --with-trace-file=*) trace_file="$optarg"
   ;;
+  --with-tracewrap=*) 
+    tracewrap="yes"
+    TRACEWRAP_DIR="$optarg"
+    QEMU_INCLUDES="$QEMU_INCLUDES -I/usr/include/google -I$TRACEWRAP_DIR "
+    QEMU_CFLAGS="$QEMU_CFLAGS -L$TRACEWRAP_DIR -L/usr/include/google -DHAS_TRACEWRAP "
+    LIBS="$LIBS -ltrace -lprotobuf-c "
+  ;;  
   --enable-gprof) gprof="yes"
   ;;
   --enable-gcov) gcov="yes"
@@ -4180,6 +4188,7 @@ echo "vhdx              $vhdx"
 echo "Quorum            $quorum"
 echo "lzo support       $lzo"
 echo "snappy support    $snappy"
+echo "tracewrap support $tracewrap"
 
 if test "$sdl_too_old" = "yes"; then
 echo "-> Your SDL version is too old - please upgrade to have SDL support"
@@ -5011,6 +5020,9 @@ if test "$target_user_only" = "yes" -a "$guest_base" = "yes"; then
 fi
 if test "$target_bsd_user" = "yes" ; then
   echo "CONFIG_BSD_USER=y" >> $config_target_mak
+fi
+if test "$tracewrap" = "yes"; then
+  echo "HAS_TRACEWRAP=y" >> $config_host_mak
 fi
 
 # generate QEMU_CFLAGS/LDFLAGS for targets

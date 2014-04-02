@@ -34,6 +34,9 @@
 #include "qemu/timer.h"
 #include "qemu/envlist.h"
 #include "elf.h"
+#ifdef HAS_TRACEWRAP
+#include "qemu/tracewrap.h"
+#endif //HAS_TRACEWRAP
 
 char *exec_path;
 
@@ -3829,6 +3832,9 @@ int main(int argc, char **argv, char **envp)
     int ret;
     int execfd;
 
+#ifdef HAS_TRACEWRAP
+    do_qemu_set_trace("/dev/shm/proto");
+#endif //HAS_TRACEWRAP
     module_call_init(MODULE_INIT_QOM);
 
     qemu_init_auxval(envp);
