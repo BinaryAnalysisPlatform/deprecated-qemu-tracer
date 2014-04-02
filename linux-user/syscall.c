@@ -135,6 +135,8 @@ int __clone2(int (*fn)(void *), void *child_stack_base,
 #undef _syscall5
 #undef _syscall6
 
+extern unsigned int num_insns;
+
 #define _syscall0(type,name)		\
 static type name (void)			\
 {					\
@@ -5351,7 +5353,8 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
         break;
 #endif
     case TARGET_NR_close:
-        ret = get_errno(close(arg1));
+	if (arg1 != 1 && arg1 != 2)
+        	ret = get_errno(close(arg1));
         break;
     case TARGET_NR_brk:
         ret = do_brk(arg1);
@@ -7111,6 +7114,7 @@ abi_long do_syscall(void *cpu_env, int num, abi_long arg1,
 #ifdef __NR_exit_group
         /* new thread calls */
     case TARGET_NR_exit_group:
+	fprintf(stderr, "Number of instructions: %i\n", num_insns);
 #ifdef TARGET_GPROF
         _mcleanup();
 #endif
