@@ -3848,7 +3848,7 @@ static int disas_vfp_insn(CPUARMState * env, DisasContext *s, uint32_t insn)
 }
 
 #ifdef HAS_TRACEWRAP
-static inline void gen_trace_endfame(DisasContext *s)
+static inline void gen_trace_endframe(DisasContext *s)
 {
         TCGv_i32 tmp0 = tcg_temp_new_i32();
         TCGv_i32 tmp1 = tcg_temp_new_i32();
@@ -3878,7 +3878,7 @@ static inline void gen_goto_tb(DisasContext *s, int n, target_ulong dest)
 static inline void gen_jmp (DisasContext *s, uint32_t dest)
 {
 #ifdef HAS_TRACEWRAP
-    gen_trace_endfame(s);
+    gen_trace_endframe(s);
 #endif //HAS_TRACEWRAP
     if (unlikely(s->singlestep_enabled)) {
         /* An indirect jump so that we still trigger the debug exception.  */
@@ -7196,7 +7196,7 @@ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
     tcg_gen_movi_i32(cpu_exclusive_info,
                      size | (rd << 4) | (rt << 8) | (rt2 << 12));
 #ifdef HAS_TRACEWRAP
-    gen_trace_endfame(s);
+    gen_trace_endframe(s);
 #endif //HAS_TRACEWRAP
     gen_exception_insn(s, 4, EXCP_STREX);
 }
@@ -10895,7 +10895,7 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
             disas_arm_insn(env, dc);
         }
 #ifdef HAS_TRACEWRAP
-        gen_trace_endfame(dc);
+        gen_trace_endframe(dc);
 #endif //HAS_TRACEWRAP
 
         if (dc->condjmp && !dc->is_jmp) {
@@ -10967,7 +10967,7 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
         switch(dc->is_jmp) {
         case DISAS_NEXT:
 #ifdef HAS_TRACEWRAP
-            gen_trace_endfame(dc);
+            gen_trace_endframe(dc);
 #endif //HAS_TRACEWRAP
             gen_goto_tb(dc, 1, dc->pc);
             break;
@@ -10994,7 +10994,7 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
             gen_set_label(dc->condlabel);
             gen_set_condexec(dc);
 #ifdef HAS_TRACEWRAP
-            gen_trace_endfame(dc);
+            gen_trace_endframe(dc);
 #endif //HAS_TRACEWRAP
             gen_goto_tb(dc, 1, dc->pc);
             dc->condjmp = 0;
