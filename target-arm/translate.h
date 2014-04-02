@@ -30,10 +30,8 @@ typedef struct DisasContext {
 #define TMP_A64_MAX 16
     int tmp_a64_count;
     TCGv_i64 tmp_a64[TMP_A64_MAX];
-#ifdef HAS_TRACEWRAP
     target_ulong old_pc;
     size_t insn_size;
-#endif //HAS_TRACEWRAP
 } DisasContext;
 
 extern TCGv_ptr cpu_env;
