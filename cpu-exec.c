@@ -619,6 +619,7 @@ int cpu_exec(CPUArchState *env)
                     qemu_log("Trace %p [" TARGET_FMT_lx "] %s\n",
                              tb->tc_ptr, tb->pc, lookup_symbol(tb->pc));
                 }
+#ifndef HAS_TRACEWRAP
                 /* see if we can patch the calling TB. When the TB
                    spans two pages, we cannot safely do a direct
                    jump. */
@@ -626,6 +627,7 @@ int cpu_exec(CPUArchState *env)
                     tb_add_jump((TranslationBlock *)(next_tb & ~TB_EXIT_MASK),
                                 next_tb & TB_EXIT_MASK, tb);
                 }
+#endif //HAS_TRACEWRAP
                 have_tb_lock = false;
                 spin_unlock(&tcg_ctx.tb_ctx.tb_lock);
 
