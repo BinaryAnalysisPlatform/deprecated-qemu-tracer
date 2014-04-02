@@ -23,6 +23,8 @@
 #include "qemu/atomic.h"
 #include "sysemu/qtest.h"
 
+unsigned int num_insns;
+
 void cpu_loop_exit(CPUState *cpu)
 {
     cpu->current_tb = NULL;
@@ -617,10 +619,10 @@ int cpu_exec(CPUArchState *env)
                 /* see if we can patch the calling TB. When the TB
                    spans two pages, we cannot safely do a direct
                    jump. */
-                if (next_tb != 0 && tb->page_addr[1] == -1) {
-                    tb_add_jump((TranslationBlock *)(next_tb & ~TB_EXIT_MASK),
-                                next_tb & TB_EXIT_MASK, tb);
-                }
+                //if (next_tb != 0 && tb->page_addr[1] == -1) {
+                //    tb_add_jump((TranslationBlock *)(next_tb & ~TB_EXIT_MASK),
+                //                next_tb & TB_EXIT_MASK, tb);
+                //}
                 spin_unlock(&tcg_ctx.tb_ctx.tb_lock);
 
                 /* cpu_interrupt might be called while translating the
@@ -631,6 +633,7 @@ int cpu_exec(CPUArchState *env)
                 barrier();
                 if (likely(!cpu->exit_request)) {
                     tc_ptr = tb->tc_ptr;
+		    num_insns += tb->icount;
                     /* execute the generated code */
                     next_tb = cpu_tb_exec(cpu, tc_ptr);
                     switch (next_tb & TB_EXIT_MASK) {
