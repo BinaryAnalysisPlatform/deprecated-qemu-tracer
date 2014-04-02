@@ -23,8 +23,6 @@
 #include "qemu/atomic.h"
 #include "sysemu/qtest.h"
 
-unsigned int num_insns;
-
 void cpu_loop_exit(CPUState *cpu)
 {
     cpu->current_tb = NULL;
@@ -639,7 +637,6 @@ int cpu_exec(CPUArchState *env)
                 barrier();
                 if (likely(!cpu->exit_request)) {
                     tc_ptr = tb->tc_ptr;
-		    num_insns += tb->icount;
                     /* execute the generated code */
                     next_tb = cpu_tb_exec(cpu, tc_ptr);
                     switch (next_tb & TB_EXIT_MASK) {
