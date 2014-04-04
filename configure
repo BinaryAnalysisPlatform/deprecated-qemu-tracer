@@ -752,8 +752,8 @@ for opt do
   --with-tracewrap=*) 
     tracewrap="yes"
     TRACEWRAP_DIR="$optarg"
-    QEMU_INCLUDES="$QEMU_INCLUDES -I/usr/include/google -I$TRACEWRAP_DIR "
-    QEMU_CFLAGS="$QEMU_CFLAGS -L$TRACEWRAP_DIR -L/usr/include/google -DHAS_TRACEWRAP "
+    QEMU_INCLUDES="$QEMU_INCLUDES -I\$(SRC_PATH)/protobuf/ "
+    QEMU_CFLAGS="$QEMU_CFLAGS -L\$(SRC_PATH)/protobuf -DHAS_TRACEWRAP "
     LIBS="$LIBS -ltrace -lprotobuf-c "
   ;;  
   --enable-gprof) gprof="yes"
@@ -5023,6 +5023,7 @@ if test "$target_bsd_user" = "yes" ; then
 fi
 if test "$tracewrap" = "yes"; then
   echo "HAS_TRACEWRAP=y" >> $config_host_mak
+  echo "TRACEWRAP_DIR=$TRACEWRAP_DIR" >> $config_host_mak
 fi
 
 # generate QEMU_CFLAGS/LDFLAGS for targets
