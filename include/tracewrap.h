@@ -25,3 +25,4 @@ OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls);
 
 #define REG_CPSR 64
 #define REG_APSR 65
+#define REG_EFLAGS 66

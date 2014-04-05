@@ -23,8 +23,8 @@ OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
         RegOperand * ro = (RegOperand *)malloc(sizeof(RegOperand));
         reg_operand__init(ro);
 
-        char * reg_name = (char *)malloc(4);
-        sprintf(reg_name, "%s", regs[reg]);//"r%02d", reg);
+        char * reg_name = (char *)malloc(8);
+        sprintf(reg_name, "%s", (reg < CPU_NB_REGS) ? regs[reg] : "EFLAGS");//"r%02d", reg);
         ro->name = reg_name;
 
         OperandInfoSpecific *ois = (OperandInfoSpecific *)malloc(sizeof(OperandInfoSpecific));
@@ -65,6 +65,20 @@ void HELPER(trace_store_reg)(uint32_t reg, uint32_t val)
         qemu_log("This register (r%d) was written. Value: 0x%x\n", reg, val);
 
         OperandInfo *oi = load_store_reg(reg, val, 1);
+
+        qemu_trace_add_operand(oi, 0x2);
+}
+
+void HELPER(trace_load_eflags)(CPUX86State *env)
+{
+        OperandInfo *oi = load_store_reg(REG_EFLAGS, cpu_compute_eflags(env), 0);
+
+        qemu_trace_add_operand(oi, 0x1);
+}
+
+void HELPER(trace_store_eflags)(CPUX86State *env)
+{
+        OperandInfo *oi = load_store_reg(REG_EFLAGS, cpu_compute_eflags(env), 1);
 
         qemu_trace_add_operand(oi, 0x2);
 }
