@@ -334,8 +334,14 @@ static inline TCGMemOp mo_b_d32(int b, TCGMemOp ot)
     return b & 1 ? (ot == MO_16 ? MO_16 : MO_32) : MO_8;
 }
 
+//Store into register (post-state)
 static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0)
 {
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(reg);
+    gen_helper_trace_store_reg(t, t0);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
     switch(ot) {
     case MO_8:
         if (!byte_reg_is_xH(reg)) {
@@ -362,6 +368,7 @@ static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0)
     }
 }
 
+//Load value from register (pre-state)
 static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg)
 {
     if (ot == MO_8 && byte_reg_is_xH(reg)) {
@@ -370,11 +377,21 @@ static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg)
     } else {
         tcg_gen_mov_tl(t0, cpu_regs[reg]);
     }
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(t, t0);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
 }
 
 static inline void gen_op_movl_A0_reg(int reg)
 {
     tcg_gen_mov_tl(cpu_A0, cpu_regs[reg]);
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(t, cpu_A0);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
 }
 
 static inline void gen_op_addl_A0_im(int32_t val)
@@ -480,11 +497,17 @@ static inline void gen_op_addq_A0_reg_sN(int shift, int reg)
 static inline void gen_op_ld_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 {
     tcg_gen_qemu_ld_tl(t0, a0, s->mem_index, idx | MO_LE);
+#ifdef HAS_TRACEWRAP
+    gen_helper_trace_ld(cpu_env, t0, a0);
+#endif //HAS_TRACEWRAP
 }
 
 static inline void gen_op_st_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 {
     tcg_gen_qemu_st_tl(t0, a0, s->mem_index, idx | MO_LE);
+#ifdef HAS_TRACEWRAP
+    gen_helper_trace_st(cpu_env, t0, a0);
+#endif //HAS_TRACEWRAP
 }
 
 static inline void gen_op_st_rm_T0_A0(DisasContext *s, int idx, int d)
@@ -1987,6 +2010,24 @@ static void gen_lea_modrm(CPUX86State *env, DisasContext *s, int modrm)
         if (s->aflag == MO_32) {
             tcg_gen_ext32u_tl(cpu_A0, cpu_A0);
         }
+
+#ifdef HAS_TRACEWRAP
+        if (base >= 0) {
+            TCGv t = tcg_const_i32(base);
+            TCGv t1 = tcg_const_i32(env->regs[base]);
+            gen_helper_trace_load_reg(t, t1);
+            tcg_temp_free(t);
+            tcg_temp_free(t1);
+        }
+        if (index >= 0) {
+            TCGv t = tcg_const_i32(index);
+            TCGv t1 = tcg_const_i32(env->regs[index]);
+            gen_helper_trace_load_reg(t, t1);
+            tcg_temp_free(t);
+            tcg_temp_free(t1);
+        }
+#endif //HAS_TRACEWRAP
+
         break;
 
     case MO_16:
@@ -2148,7 +2189,16 @@ static void gen_ldst_modrm(CPUX86State *env, DisasContext *s, int modrm,
 
     mod = (modrm >> 6) & 3;
     rm = (modrm & 7) | REX_B(s);
-    if (mod == 3) {
+
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(rm);
+    TCGv t1 = tcg_const_i32(env->regs[rm]);
+    gen_helper_trace_load_reg(t, t1);
+    tcg_temp_free(t);
+    tcg_temp_free(t1);
+#endif //HAS_TRACEWRAP
+
+   if (mod == 3) {
         if (is_store) {
             if (reg != OR_TMP0)
                 gen_op_mov_v_reg(ot, cpu_T[0], reg);
@@ -2370,6 +2420,12 @@ static void gen_push_v(DisasContext *s, TCGv val)
     int size = 1 << d_ot;
     TCGv new_esp = cpu_A0;
 
+#ifdef HAS_TRACEWRAP
+    TCGv t0 = tcg_const_i32(R_ESP);
+    gen_helper_trace_load_reg(t0, cpu_regs[R_ESP]);
+    tcg_temp_free(t0);
+#endif //HAS_TRACEWRAP
+
     tcg_gen_subi_tl(cpu_A0, cpu_regs[R_ESP], size);
 
     if (CODE64(s)) {
@@ -2400,6 +2456,12 @@ static TCGMemOp gen_pop_T0(DisasContext *s)
 {
     TCGMemOp d_ot = mo_pushpop(s, s->dflag);
     TCGv addr = cpu_A0;
+
+#ifdef HAS_TRACEWRAP
+    TCGv t0 = tcg_const_i32(R_ESP);
+    gen_helper_trace_load_reg(t0, cpu_regs[R_ESP]);
+    tcg_temp_free(t0);
+#endif //HAS_TRACEWRAP
 
     if (CODE64(s)) {
         addr = cpu_regs[R_ESP];
