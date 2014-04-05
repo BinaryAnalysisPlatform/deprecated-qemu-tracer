@@ -2615,6 +2615,8 @@ static void gen_debug(DisasContext *s, target_ulong cur_eip)
 #ifdef HAS_TRACEWRAP
 static inline void gen_trace_endframe(DisasContext *s)
 {
+        gen_update_cc_op(s);
+        gen_helper_trace_store_eflags(cpu_env);
         TCGv_i32 tmp0 = tcg_temp_new_i32();
         TCGv_i32 tmp1 = tcg_temp_new_i32();
         tcg_gen_movi_i32(tmp0, s->old_pc);
@@ -8084,6 +8086,7 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
 	{
 		dc->old_pc = dc->pc;
 		gen_helper_trace_newframe(cpu_env);
+        gen_helper_trace_load_eflags(cpu_env);
 	} else {
 		first_insn_ever = 0;
 	}
