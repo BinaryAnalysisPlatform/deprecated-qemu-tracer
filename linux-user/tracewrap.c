@@ -58,6 +58,8 @@ void qemu_trace_newframe(uint64_t addr, int thread_id) //, uint32_t insn /*shoul
 
 void qemu_trace_add_operand(OperandInfo *oi, int inout)
 {
+    if (! open_frame)
+        return;
     OperandValueList *ol;
     if (inout & 0x1)
     {
