@@ -6964,7 +6964,9 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         break;
     case 0xcd: /* int N */
         val = cpu_ldub_code(env, s->pc++);
+#ifdef HAS_TRACEWRAP
         gen_trace_endframe(s);
+#endif //HAS_TRACEWRAP
         if (s->vm86 && s->iopl != 3) {
             gen_exception(s, EXCP0D_GPF, pc_start - s->cs_base);
         } else {
