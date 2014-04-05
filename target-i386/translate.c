@@ -81,6 +81,8 @@ static uint8_t gen_opc_cc_op[OPC_BUF_SIZE];
 static int x86_64_hregs;
 #endif
 
+int first_insn_ever = 1;
+
 typedef struct DisasContext {
     /* current insn context */
     int override; /* -1 if no override */
@@ -122,6 +124,8 @@ typedef struct DisasContext {
     int cpuid_ext2_features;
     int cpuid_ext3_features;
     int cpuid_7_0_ebx_features;
+    target_ulong old_pc;
+    size_t insn_size;
 } DisasContext;
 
 static void gen_eob(DisasContext *s);
@@ -2546,11 +2550,27 @@ static void gen_debug(DisasContext *s, target_ulong cur_eip)
     s->is_jmp = DISAS_TB_JUMP;
 }
 
+#ifdef HAS_TRACEWRAP
+static inline void gen_trace_endframe(DisasContext *s)
+{
+        TCGv_i32 tmp0 = tcg_temp_new_i32();
+        TCGv_i32 tmp1 = tcg_temp_new_i32();
+        tcg_gen_movi_i32(tmp0, s->old_pc);
+        tcg_gen_movi_i32(tmp1, s->insn_size);
+        gen_helper_trace_endframe(cpu_env, tmp0, tmp1);
+        tcg_temp_free_i32(tmp0);
+        tcg_temp_free_i32(tmp1);
+}
+#endif //HAS_TRACEWRAP
+
 /* generate a generic end of block. Trace exception is also generated
    if needed */
 static void gen_eob(DisasContext *s)
 {
     gen_update_cc_op(s);
+#ifdef HAS_TRACEWRAP
+    gen_trace_endframe(s);
+#endif //HAS_TRACEWRAP
     if (s->tb->flags & HF_INHIBIT_IRQ_MASK) {
         gen_helper_reset_inhibit_irq(cpu_env);
     }
@@ -4417,6 +4437,7 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         tcg_gen_debug_insn_start(pc_start);
     }
     s->pc = pc_start;
+    s->insn_size = 0;
     prefixes = 0;
     s->override = -1;
     rex_w = -1;
@@ -6879,6 +6900,7 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         break;
     case 0xcd: /* int N */
         val = cpu_ldub_code(env, s->pc++);
+        gen_trace_endframe(s);
         if (s->vm86 && s->iopl != 3) {
             gen_exception(s, EXCP0D_GPF, pc_start - s->cs_base);
         } else {
@@ -7814,12 +7836,14 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
     /* lock generation */
     if (s->prefix & PREFIX_LOCK)
         gen_helper_unlock();
+    s->insn_size = (s->pc - pc_start);
     return s->pc;
  illegal_op:
     if (s->prefix & PREFIX_LOCK)
         gen_helper_unlock();
     /* XXX: ensure that no lock was generated */
     gen_exception(s, EXCP06_ILLOP, pc_start - s->cs_base);
+    s->insn_size = (s->pc - pc_start);
     return s->pc;
 }
 
@@ -7928,12 +7952,16 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
     dc->code64 = (flags >> HF_CS64_SHIFT) & 1;
 #endif
     dc->flags = flags;
+#ifdef HAS_TRACEWRAP
+    dc->jmp_opt = 0;
+#else
     dc->jmp_opt = !(dc->tf || cs->singlestep_enabled ||
                     (flags & HF_INHIBIT_IRQ_MASK)
 #ifndef CONFIG_SOFTMMU
                     || (flags & HF_SOFTMMU_MASK)
 #endif
                     );
+#endif //HAS_TRACEWRAP
 #if 0
     /* check addseg logic */
     if (!dc->addseg && (dc->vm86 || !dc->pe || !dc->code32))
@@ -7989,7 +8017,19 @@ static inline void gen_intermediate_code_internal(X86CPU *cpu,
         if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO))
             gen_io_start();
 
+#ifdef HAS_TRACEWRAP
+	if (likely(!first_insn_ever))
+	{
+		dc->old_pc = dc->pc;
+		gen_helper_trace_newframe(cpu_env);
+	} else {
+		first_insn_ever = 0;
+	}
+#endif //HAS_TRACEWRAP
         pc_ptr = disas_insn(env, dc, pc_ptr);
+#ifdef HAS_TRACEWRAP
+	gen_trace_endframe(dc);
+#endif //HAS_TRACEWRAP
         num_insns++;
         /* stop translation if indicated */
         if (dc->is_jmp)
