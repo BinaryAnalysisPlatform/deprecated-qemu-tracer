@@ -83,51 +83,52 @@ void HELPER(trace_store_reg)(uint32_t reg, uint32_t val)
 //        qemu_trace_add_operand(oi, 0x2);
 //}
 //
-//OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls)
-//{
-//        MemOperand * mo = (MemOperand *)malloc(sizeof(MemOperand));
-//        mem_operand__init(mo);
-//
-//        mo->address = addr;
-//
-//        OperandInfoSpecific *ois = (OperandInfoSpecific *)malloc(sizeof(OperandInfoSpecific));
-//        operand_info_specific__init(ois);
-//        ois->mem_operand = mo;
-//
-//        OperandUsage *ou = (OperandUsage *)malloc(sizeof(OperandUsage));
-//        operand_usage__init(ou);
-//        if (ls == 0)
-//        {
-//                ou->read = 1;
-//        } else {
-//                ou->written = 1;
-//        }
-//        OperandInfo *oi = (OperandInfo *)malloc(sizeof(OperandInfo));
-//        operand_info__init(oi);
-//        oi->bit_length = 0;
-//        oi->operand_info_specific = ois;
-//        oi->operand_usage = ou;
-//        oi->value.len = 4;
-//        oi->value.data = malloc(oi->value.len);
-//        memcpy(oi->value.data, &val, 4);
-//
-//        return oi;
-//}
-//
-//void HELPER(trace_ld)(CPUMIPSState *env, uint32_t val, uint32_t addr)
-//{
-//        qemu_log("This was a read 0x%x addr:0x%x value:0x%x\n", env->eip, addr, val);
-//
-//        OperandInfo *oi = load_store_mem(addr, val, 0);
-//
-//        qemu_trace_add_operand(oi, 0x1);
-//}
-//
-//void HELPER(trace_st)(CPUMIPSState *env, uint32_t val, uint32_t addr)
-//{
-//        qemu_log("This was a store 0x%x addr:0x%x value:0x%x\n", env->eip, addr, val);
-//
-//        OperandInfo *oi = load_store_mem(addr, val, 1);
-//
-//        qemu_trace_add_operand(oi, 0x2);
-//}
+
+OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls)
+{
+        MemOperand * mo = (MemOperand *)malloc(sizeof(MemOperand));
+        mem_operand__init(mo);
+
+        mo->address = addr;
+
+        OperandInfoSpecific *ois = (OperandInfoSpecific *)malloc(sizeof(OperandInfoSpecific));
+        operand_info_specific__init(ois);
+        ois->mem_operand = mo;
+
+        OperandUsage *ou = (OperandUsage *)malloc(sizeof(OperandUsage));
+        operand_usage__init(ou);
+        if (ls == 0)
+        {
+                ou->read = 1;
+        } else {
+                ou->written = 1;
+        }
+        OperandInfo *oi = (OperandInfo *)malloc(sizeof(OperandInfo));
+        operand_info__init(oi);
+        oi->bit_length = 0;
+        oi->operand_info_specific = ois;
+        oi->operand_usage = ou;
+        oi->value.len = 4;
+        oi->value.data = malloc(oi->value.len);
+        memcpy(oi->value.data, &val, 4);
+
+        return oi;
+}
+
+void HELPER(trace_ld)(CPUMIPSState *env, uint32_t val, uint32_t addr)
+{
+        qemu_log("This was a read 0x%x addr:0x%x value:0x%x\n", env->active_tc.PC, addr, val);
+
+        OperandInfo *oi = load_store_mem(addr, val, 0);
+
+        qemu_trace_add_operand(oi, 0x1);
+}
+
+void HELPER(trace_st)(CPUMIPSState *env, uint32_t val, uint32_t addr)
+{
+        qemu_log("This was a store 0x%x addr:0x%x value:0x%x\n", env->active_tc.PC, addr, val);
+
+        OperandInfo *oi = load_store_mem(addr, val, 1);
+
+        qemu_trace_add_operand(oi, 0x2);
+}

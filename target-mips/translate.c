@@ -1690,7 +1690,9 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
 {
     const char *opn = "ld";
     TCGv t0, t1, t2;
-
+#ifdef HAS_TRACEWRAP
+    TCGv addr;
+#endif //HAS_TRACEWRAP
     if (rt == 0 && ctx->insn_flags & (INSN_LOONGSON2E | INSN_LOONGSON2F)) {
         /* Loongson CPU uses a load to zero register for prefetch.
            We emulate it as a NOP. On other CPU we must perform the
@@ -1703,10 +1705,12 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
     gen_base_offset_addr(ctx, t0, base, offset);
 
 #ifdef HAS_TRACEWRAP
+    addr = tcg_temp_new();
+    gen_base_offset_addr(ctx, addr, base, offset);
     if (base) {
-        TCGv trt = tcg_const_i32(base);
-        gen_helper_trace_load_reg(trt, cpu_gpr[base]);
-        tcg_temp_free(trt);
+        TCGv bt = tcg_const_i32(base);
+        gen_helper_trace_load_reg(bt, cpu_gpr[base]);
+        tcg_temp_free(bt);
     }
 #endif //HAS_TRACEWRAP
 
@@ -1863,6 +1867,10 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
         opn = "ll";
         break;
     }
+#ifdef HAS_TRACEWRAP
+    gen_helper_trace_ld(cpu_env, t0, addr);
+    tcg_temp_free(addr);
+#endif //HAS_TRACEWRAP
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t0);
@@ -1876,16 +1884,17 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
 
-#ifdef HAS_TRACEWRAP
-    if (base) {
-        TCGv trt = tcg_const_i32(base);
-        gen_helper_trace_load_reg(trt, cpu_gpr[base]);
-        tcg_temp_free(trt);
-    }
-#endif //HAS_TRACEWRAP
 
     gen_base_offset_addr(ctx, t0, base, offset);
     gen_load_gpr(t1, rt);
+#ifdef HAS_TRACEWRAP
+    if (base) {
+        TCGv bt = tcg_const_i32(base);
+        gen_helper_trace_load_reg(bt, cpu_gpr[base]);
+        tcg_temp_free(bt);
+        gen_helper_trace_st(cpu_env, t1, t0);
+    }
+#endif //HAS_TRACEWRAP
     switch (opc) {
 #if defined(TARGET_MIPS64)
     case OPC_SD:
