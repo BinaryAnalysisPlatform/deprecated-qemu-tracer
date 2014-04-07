@@ -1160,11 +1160,19 @@ static inline void gen_load_gpr (TCGv t, int reg)
     else
         tcg_gen_mov_tl(t, cpu_gpr[reg]);
 #ifdef HAS_TRACEWRAP
+    TCGv tr = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(tr,t);
+    tcg_temp_free(tr);
 #endif //HAS_TRACEWRAP
 }
 
 static inline void gen_store_gpr (TCGv t, int reg)
 {
+#ifdef HAS_TRACEWRAP
+    TCGv tr = tcg_const_i32(reg);
+    gen_helper_trace_store_reg(tr,t);
+    tcg_temp_free(tr);
+#endif //HAS_TRACEWRAP
     if (reg != 0)
         tcg_gen_mov_tl(cpu_gpr[reg], t);
 }
@@ -1173,10 +1181,22 @@ static inline void gen_store_gpr (TCGv t, int reg)
 static inline void gen_load_ACX (TCGv t, int reg)
 {
     tcg_gen_mov_tl(t, cpu_ACX[reg]);
+#ifdef HAS_TRACEWRAP
+    //XXX this is likely wrong as it reads from cpu_ACX[reg] and not cpu_GPR[reg]
+    TCGv tr = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(tr,t);
+    tcg_temp_free(tr);
+#endif //HAS_TRACEWRAP
 }
 
 static inline void gen_store_ACX (TCGv t, int reg)
 {
+#ifdef HAS_TRACEWRAP
+    //XXX this is likely wrong as it writes to cpu_ACX[reg] and not cpu_GPR[reg]
+    TCGv tr = tcg_const_i32(reg);
+    gen_helper_trace_store_reg(tr,t);
+    tcg_temp_free(tr);
+#endif //HAS_TRACEWRAP
     tcg_gen_mov_tl(cpu_ACX[reg], t);
 }
 
@@ -1682,6 +1702,14 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
     t0 = tcg_temp_new();
     gen_base_offset_addr(ctx, t0, base, offset);
 
+#ifdef HAS_TRACEWRAP
+    if (base) {
+        TCGv trt = tcg_const_i32(base);
+        gen_helper_trace_load_reg(trt, cpu_gpr[base]);
+        tcg_temp_free(trt);
+    }
+#endif //HAS_TRACEWRAP
+
     switch (opc) {
 #if defined(TARGET_MIPS64)
     case OPC_LWU:
@@ -1848,6 +1876,14 @@ static void gen_st (DisasContext *ctx, uint32_t opc, int rt,
     TCGv t0 = tcg_temp_new();
     TCGv t1 = tcg_temp_new();
 
+#ifdef HAS_TRACEWRAP
+    if (base) {
+        TCGv trt = tcg_const_i32(base);
+        gen_helper_trace_load_reg(trt, cpu_gpr[base]);
+        tcg_temp_free(trt);
+    }
+#endif //HAS_TRACEWRAP
+
     gen_base_offset_addr(ctx, t0, base, offset);
     gen_load_gpr(t1, rt);
     switch (opc) {
@@ -2009,6 +2045,12 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
     target_ulong uimm = (target_long)imm; /* Sign extend to 32/64 bits */
     const char *opn = "imm arith";
 
+#ifdef HAS_TRACEWRAP
+    TCGv trs = tcg_const_i32(rs);
+    gen_helper_trace_load_reg(trs, cpu_gpr[rs]);
+    tcg_temp_free(trs);
+#endif //HAS_TRACEWRAP
+
     if (rt == 0 && opc != OPC_ADDI && opc != OPC_DADDI) {
         /* If no destination, treat it as a NOP.
            For addi, we must generate the overflow exception when needed. */
@@ -2086,6 +2128,12 @@ static void gen_arith_imm(DisasContext *ctx, uint32_t opc,
         break;
 #endif
     }
+#ifdef HAS_TRACEWRAP
+    TCGv trt = tcg_const_i32(rt);
+    gen_helper_trace_store_reg(trt, cpu_gpr[rt]);
+    tcg_temp_free(trt);
+#endif //HAS_TRACEWRAP
+
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, " TARGET_FMT_lx, opn, regnames[rt], regnames[rs], uimm);
 }
@@ -2274,6 +2322,15 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         return;
     }
 
+#ifdef HAS_TRACEWRAP
+    TCGv trs = tcg_const_i32(rs);
+    TCGv trt = tcg_const_i32(rt);
+    gen_helper_trace_load_reg(trs, cpu_gpr[rs]);
+    gen_helper_trace_load_reg(trt, cpu_gpr[rt]);
+    tcg_temp_free(trs);
+    tcg_temp_free(trt);
+#endif //HAS_TRACEWRAP
+
     switch (opc) {
     case OPC_ADD:
         {
@@ -2436,6 +2493,12 @@ static void gen_arith(DisasContext *ctx, uint32_t opc,
         opn = "mul";
         break;
     }
+#ifdef HAS_TRACEWRAP
+    TCGv trd = tcg_const_i32(rd);
+    gen_helper_trace_store_reg(trd, cpu_gpr[rd]);
+    tcg_temp_free(trd);
+#endif //HAS_TRACEWRAP
+
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, %s", opn, regnames[rd], regnames[rs], regnames[rt]);
 }
@@ -2488,6 +2551,15 @@ static void gen_logic(DisasContext *ctx, uint32_t opc,
         return;
     }
 
+#ifdef HAS_TRACEWRAP
+    TCGv trs = tcg_const_i32(rs);
+    TCGv trt = tcg_const_i32(rt);
+    gen_helper_trace_load_reg(trs, cpu_gpr[rs]);
+    gen_helper_trace_load_reg(trt, cpu_gpr[rt]);
+    tcg_temp_free(trs);
+    tcg_temp_free(trt);
+#endif //HAS_TRACEWRAP
+
     switch (opc) {
     case OPC_AND:
         if (likely(rs != 0 && rt != 0)) {
@@ -2534,6 +2606,11 @@ static void gen_logic(DisasContext *ctx, uint32_t opc,
         opn = "xor";
         break;
     }
+#ifdef HAS_TRACEWRAP
+    TCGv trd = tcg_const_i32(rd);
+    gen_helper_trace_store_reg(trd, cpu_gpr[rd]);
+    tcg_temp_free(trd);
+#endif //HAS_TRACEWRAP
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, %s", opn, regnames[rd], regnames[rs], regnames[rt]);
 }
@@ -15733,6 +15810,9 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             ctx.insn_size = 4;
 #endif //HAS_TRACEWRAP
             decode_opc(env, &ctx);
+#ifdef HAS_TRACEWRAP
+            gen_trace_endframe(&ctx);
+#endif //HAS_TRACEWRAP
         } else if (ctx.insn_flags & ASE_MICROMIPS) {
             ctx.opcode = cpu_lduw_code(env, ctx.pc);
             insn_bytes = decode_micromips_opc(env, &ctx);
