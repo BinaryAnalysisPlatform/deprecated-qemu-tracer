@@ -1072,6 +1072,8 @@ typedef struct DisasContext {
     uint32_t hflags, saved_hflags;
     int bstate;
     target_ulong btarget;
+    target_ulong old_pc;
+    size_t insn_size;
 } DisasContext;
 
 enum {
@@ -1128,6 +1130,28 @@ static const char * const fregnames[] = {
     MIPS_DEBUG("Invalid %s %03x %03x %03x", op, ctx->opcode >> 26,            \
                ctx->opcode & 0x3F, ((ctx->opcode >> 16) & 0x1F))
 
+
+#ifdef HAS_TRACEWRAP
+static inline void gen_trace_endframe(DisasContext *s)
+{
+    TCGv_i32 t0 = tcg_temp_new_i32();
+    TCGv_i32 t1 = tcg_temp_new_i32();
+    tcg_gen_movi_i32(t0, s->old_pc);
+    tcg_gen_movi_i32(t1, s->insn_size);
+    gen_helper_trace_endframe(cpu_env, t0, t1);
+    tcg_temp_free_i32(t0);
+    tcg_temp_free_i32(t1);
+}
+#endif //HAS_TRACEWRAP
+
+static inline void gen_exit_tb(uintptr_t val, DisasContext *s)
+{
+#ifdef HAS_TRACEWRAP
+    gen_trace_endframe(s);
+#endif //HAS_TRACEWRAP
+    tcg_gen_exit_tb(val);
+}
+
 /* General purpose registers moves. */
 static inline void gen_load_gpr (TCGv t, int reg)
 {
@@ -1135,6 +1159,8 @@ static inline void gen_load_gpr (TCGv t, int reg)
         tcg_gen_movi_tl(t, 0);
     else
         tcg_gen_mov_tl(t, cpu_gpr[reg]);
+#ifdef HAS_TRACEWRAP
+#endif //HAS_TRACEWRAP
 }
 
 static inline void gen_store_gpr (TCGv t, int reg)
@@ -1319,6 +1345,9 @@ generate_exception_err (DisasContext *ctx, int excp, int err)
     TCGv_i32 texcp = tcg_const_i32(excp);
     TCGv_i32 terr = tcg_const_i32(err);
     save_cpu_state(ctx, 1);
+#ifdef HAS_TRACEWRAP
+    gen_trace_endframe(ctx);
+#endif //HAS_TRACEWRAP
     gen_helper_raise_exception_err(cpu_env, texcp, terr);
     tcg_temp_free_i32(terr);
     tcg_temp_free_i32(texcp);
@@ -1328,6 +1357,9 @@ static inline void
 generate_exception (DisasContext *ctx, int excp)
 {
     save_cpu_state(ctx, 1);
+#ifdef HAS_TRACEWRAP
+    gen_trace_endframe(ctx);
+#endif //HAS_TRACEWRAP
     gen_helper_0e0i(raise_exception, excp);
 }
 
@@ -1526,6 +1558,7 @@ OP_LD_ATOMIC(lld,ld64);
 #endif
 #undef OP_LD_ATOMIC
 
+#ifndef HAS_TRACEWRAP
 #ifdef CONFIG_USER_ONLY
 #define OP_ST_ATOMIC(insn,fname,ldname,almask)                               \
 static inline void op_st_##insn(TCGv arg1, TCGv arg2, int rt, DisasContext *ctx) \
@@ -1560,6 +1593,44 @@ static inline void op_st_##insn(TCGv arg1, TCGv arg2, int rt, DisasContext *ctx)
     tcg_temp_free(t0);                                                       \
 }
 #endif
+#else //HAS_TRACEWRAP
+#ifdef CONFIG_USER_ONLY
+#define OP_ST_ATOMIC(insn,fname,ldname,almask)                               \
+static inline void op_st_##insn(TCGv arg1, TCGv arg2, int rt, DisasContext *ctx) \
+{                                                                            \
+    TCGv t0 = tcg_temp_new();                                                \
+    int l1 = gen_new_label();                                                \
+    int l2 = gen_new_label();                                                \
+                                                                             \
+    tcg_gen_andi_tl(t0, arg2, almask);                                       \
+    tcg_gen_brcondi_tl(TCG_COND_EQ, t0, 0, l1);                              \
+    tcg_gen_st_tl(arg2, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));          \
+    generate_exception(ctx, EXCP_AdES);                                      \
+    gen_set_label(l1);                                                       \
+    tcg_gen_ld_tl(t0, cpu_env, offsetof(CPUMIPSState, lladdr));                  \
+    tcg_gen_brcond_tl(TCG_COND_NE, arg2, t0, l2);                            \
+    tcg_gen_movi_tl(t0, rt | ((almask << 3) & 0x20));                        \
+    tcg_gen_st_tl(t0, cpu_env, offsetof(CPUMIPSState, llreg));                   \
+    tcg_gen_st_tl(arg1, cpu_env, offsetof(CPUMIPSState, llnewval));              \
+    gen_trace_endframe(ctx);                                                 \
+    gen_helper_0e0i(raise_exception, EXCP_SC);                               \
+    gen_set_label(l2);                                                       \
+    tcg_gen_movi_tl(t0, 0);                                                  \
+    gen_store_gpr(t0, rt);                                                   \
+    tcg_temp_free(t0);                                                       \
+}
+#else
+#define OP_ST_ATOMIC(insn,fname,ldname,almask)                               \
+static inline void op_st_##insn(TCGv arg1, TCGv arg2, int rt, DisasContext *ctx) \
+{                                                                            \
+    TCGv t0 = tcg_temp_new();                                                \
+    gen_helper_1e2i(insn, t0, arg1, arg2, ctx->mem_idx);                     \
+    gen_store_gpr(t0, rt);                                                   \
+    tcg_temp_free(t0);                                                       \
+}
+#endif
+#endif //HAS_TRACEWRAP
+
 OP_ST_ATOMIC(sc,st32,ld32s,0x3);
 #if defined(TARGET_MIPS64)
 OP_ST_ATOMIC(scd,st64,ld64,0x7);
@@ -3581,14 +3652,14 @@ static inline void gen_goto_tb(DisasContext *ctx, int n, target_ulong dest)
         likely(!ctx->singlestep_enabled)) {
         tcg_gen_goto_tb(n);
         gen_save_pc(dest);
-        tcg_gen_exit_tb((uintptr_t)tb + n);
+        gen_exit_tb((uintptr_t)tb + n, ctx);
     } else {
         gen_save_pc(dest);
         if (ctx->singlestep_enabled) {
             save_cpu_state(ctx, 0);
             gen_helper_0e0i(raise_exception, EXCP_DEBUG);
         }
-        tcg_gen_exit_tb(0);
+        gen_exit_tb(0, ctx);
     }
 }
 
@@ -9133,7 +9204,7 @@ static void handle_delay_slot(DisasContext *ctx, int insn_bytes)
                 save_cpu_state(ctx, 0);
                 gen_helper_0e0i(raise_exception, EXCP_DEBUG);
             }
-            tcg_gen_exit_tb(0);
+            gen_exit_tb(0, ctx);
             break;
         default:
             MIPS_DEBUG("unknown branch");
@@ -15656,6 +15727,11 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
         if (!(ctx.hflags & MIPS_HFLAG_M16)) {
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
             insn_bytes = 4;
+#ifdef HAS_TRACEWRAP
+            gen_helper_trace_newframe(cpu_env);
+            ctx.old_pc = ctx.pc;
+            ctx.insn_size = 4;
+#endif //HAS_TRACEWRAP
             decode_opc(env, &ctx);
         } else if (ctx.insn_flags & ASE_MICROMIPS) {
             ctx.opcode = cpu_lduw_code(env, ctx.pc);
@@ -15712,7 +15788,7 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             gen_goto_tb(&ctx, 0, ctx.pc);
             break;
         case BS_EXCP:
-            tcg_gen_exit_tb(0);
+            gen_exit_tb(0, &ctx);
             break;
         case BS_BRANCH:
         default:

@@ -26,6 +26,11 @@ DEF_HELPER_FLAGS_1(dclo, TCG_CALL_NO_RWG_SE, tl, tl)
 DEF_HELPER_FLAGS_1(dclz, TCG_CALL_NO_RWG_SE, tl, tl)
 #endif
 
+#ifdef HAS_TRACEWRAP
+DEF_HELPER_1(trace_newframe, void, env)
+DEF_HELPER_3(trace_endframe, void, env, i32, i32)
+#endif //HAS_TRACEWRAP
+
 DEF_HELPER_3(muls, tl, env, tl, tl)
 DEF_HELPER_3(mulsu, tl, env, tl, tl)
 DEF_HELPER_3(macc, tl, env, tl, tl)
