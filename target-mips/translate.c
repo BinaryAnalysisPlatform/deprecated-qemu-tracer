@@ -2887,6 +2887,11 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
     const char *opn = "mul/div";
     TCGv t0, t1;
 
+#ifdef HAS_TRACEWRAP
+    TCGv lot = tcg_const_i32(32); //defined in tracewrap.h
+    TCGv hit = tcg_const_i32(33); //defined in tracewrap.h
+#endif //HAS_TRACEWRAP
+
     t0 = tcg_temp_new();
     t1 = tcg_temp_new();
 
@@ -3096,6 +3101,14 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s %s", opn, regnames[rs], regnames[rt]);
  out:
+
+#ifdef HAS_TRACEWRAP
+    gen_helper_trace_store_reg(lot, cpu_LO[acc]);
+    gen_helper_trace_store_reg(hit, cpu_HI[acc]);
+    tcg_temp_free(lot);
+    tcg_temp_free(hit);
+#endif //HAS_TRACEWRAP
+
     tcg_temp_free(t0);
     tcg_temp_free(t1);
 }

@@ -5,7 +5,7 @@
 #include "tracewrap.h"
 #include "qemu/log.h"
 
-const char *regs[] = {"r0","at","v0","v1","a0","a1","a2","a3","t0","t1","t2","t3","t4","t5","t6","t7","s0","s1","s2","s3","s4","s5","s6","s7","t8","t9","k0","k1","gp","sp","s8","ra"};
+const char *regs[] = {"r0","at","v0","v1","a0","a1","a2","a3","t0","t1","t2","t3","t4","t5","t6","t7","s0","s1","s2","s3","s4","s5","s6","s7","t8","t9","k0","k1","gp","sp","s8","ra","LO","HI"};
 
 void HELPER(trace_newframe)(CPUMIPSState *env)
 {
@@ -23,7 +23,7 @@ OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
         reg_operand__init(ro);
 
         char * reg_name = (char *)malloc(8);
-        sprintf(reg_name, "%s", (reg <= 32) ? regs[reg] : "REG2BIG");
+        sprintf(reg_name, "%s", (reg < 34) ? regs[reg] : "REG2BIG");
         ro->name = reg_name;
 
         OperandInfoSpecific *ois = (OperandInfoSpecific *)malloc(sizeof(OperandInfoSpecific));
