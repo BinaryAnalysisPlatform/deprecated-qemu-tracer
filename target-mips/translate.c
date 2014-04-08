@@ -1958,6 +1958,16 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
 #endif
     gen_base_offset_addr(ctx, t0, base, offset);
     gen_load_gpr(t1, rt);
+
+#ifdef HAS_TRACEWRAP
+    if (base) {
+        TCGv bt = tcg_const_i32(base);
+        gen_helper_trace_load_reg(bt, cpu_gpr[base]);
+        tcg_temp_free(bt);
+        gen_helper_trace_st(cpu_env, t1, t0);
+    }
+#endif //HAS_TRACEWRAP
+
     switch (opc) {
 #if defined(TARGET_MIPS64)
     case OPC_SCD:
@@ -1972,6 +1982,13 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         opn = "sc";
         break;
     }
+
+#ifdef HAS_TRACEWRAP
+    TCGv rtt = tcg_const_i32(rt);
+    gen_helper_trace_store_reg(rtt, cpu_gpr[rt]);
+    tcg_temp_free(rtt);
+#endif //HAS_TRACEWRAP
+
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %d(%s)", opn, regnames[rt], offset, regnames[base]);
     tcg_temp_free(t1);
@@ -2220,6 +2237,11 @@ static void gen_slt_imm(DisasContext *ctx, uint32_t opc,
         opn = "sltiu";
         break;
     }
+#ifdef HAS_TRACEWRAP
+    TCGv rtt = tcg_const_i32(rt);
+    gen_helper_trace_store_reg(rtt, cpu_gpr[rt]);
+    tcg_temp_free(rtt);
+#endif //HAS_TRACEWRAP
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, " TARGET_FMT_lx, opn, regnames[rt], regnames[rs], uimm);
     tcg_temp_free(t0);
@@ -2312,6 +2334,11 @@ static void gen_shift_imm(DisasContext *ctx, uint32_t opc,
         break;
 #endif
     }
+#ifdef HAS_TRACEWRAP
+    TCGv rtt = tcg_const_i32(rt);
+    gen_helper_trace_store_reg(rtt, cpu_gpr[rt]);
+    tcg_temp_free(rtt);
+#endif //HAS_TRACEWRAP
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, " TARGET_FMT_lx, opn, regnames[rt], regnames[rs], uimm);
     tcg_temp_free(t0);
@@ -2525,6 +2552,15 @@ static void gen_cond_move(DisasContext *ctx, uint32_t opc,
         return;
     }
 
+#ifdef HAS_TRACEWRAP
+    TCGv rst = tcg_const_i32(rs);
+    TCGv rtt = tcg_const_i32(rt);
+    gen_helper_trace_load_reg(rst, cpu_gpr[rs]);
+    gen_helper_trace_load_reg(rtt, cpu_gpr[rt]);
+    tcg_temp_free(rst);
+    tcg_temp_free(rtt);
+#endif //HAS_TRACEWRAP
+
     t0 = tcg_temp_new();
     gen_load_gpr(t0, rt);
     t1 = tcg_const_tl(0);
@@ -2543,6 +2579,12 @@ static void gen_cond_move(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t2);
     tcg_temp_free(t1);
     tcg_temp_free(t0);
+
+#ifdef HAS_TRACEWRAP
+    TCGv rdt = tcg_const_i32(rd);
+    gen_helper_trace_load_reg(rdt, cpu_gpr[rd]);
+    tcg_temp_free(rdt);
+#endif //HAS_TRACEWRAP
 
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, %s", opn, regnames[rd], regnames[rs], regnames[rt]);
@@ -2637,6 +2679,15 @@ static void gen_slt(DisasContext *ctx, uint32_t opc,
         return;
     }
 
+#ifdef HAS_TRACEWRAP
+    TCGv rtt = tcg_const_i32(rt);
+    TCGv rst = tcg_const_i32(rs);
+    gen_helper_trace_load_reg(rtt, cpu_gpr[rt]);
+    gen_helper_trace_load_reg(rst, cpu_gpr[rs]);
+    tcg_temp_free(rtt);
+    tcg_temp_free(rst);
+#endif //HAS_TRACEWRAP
+
     t0 = tcg_temp_new();
     t1 = tcg_temp_new();
     gen_load_gpr(t0, rs);
@@ -2651,6 +2702,11 @@ static void gen_slt(DisasContext *ctx, uint32_t opc,
         opn = "sltu";
         break;
     }
+#ifdef HAS_TRACEWRAP
+    TCGv rdt = tcg_const_i32(rd);
+    gen_helper_trace_store_reg(rdt, cpu_gpr[rd]);
+    tcg_temp_free(rdt);
+#endif //HAS_TRACEWRAP
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, %s", opn, regnames[rd], regnames[rs], regnames[rt]);
     tcg_temp_free(t0);
@@ -2670,6 +2726,15 @@ static void gen_shift(DisasContext *ctx, uint32_t opc,
         MIPS_DEBUG("NOP");
         return;
     }
+
+#ifdef HAS_TRACEWRAP
+    TCGv rtt = tcg_const_i32(rt);
+    TCGv rst = tcg_const_i32(rs);
+    gen_helper_trace_load_reg(rtt, cpu_gpr[rt]);
+    gen_helper_trace_load_reg(rst, cpu_gpr[rs]);
+    tcg_temp_free(rtt);
+    tcg_temp_free(rst);
+#endif //HAS_TRACEWRAP
 
     t0 = tcg_temp_new();
     t1 = tcg_temp_new();
@@ -2732,6 +2797,11 @@ static void gen_shift(DisasContext *ctx, uint32_t opc,
         break;
 #endif
     }
+#ifdef HAS_TRACEWRAP
+    TCGv rdt = tcg_const_i32(rd);
+    gen_helper_trace_store_reg(rdt, cpu_gpr[rd]);
+    tcg_temp_free(rdt);
+#endif //HAS_TRACEWRAP
     (void)opn; /* avoid a compiler warning */
     MIPS_DEBUG("%s %s, %s, %s", opn, regnames[rd], regnames[rs], regnames[rt]);
     tcg_temp_free(t0);
