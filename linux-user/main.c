@@ -36,6 +36,7 @@
 #include "elf.h"
 #ifdef HAS_TRACEWRAP
 #include "tracewrap.h"
+const char * qemu_tracefilename = "/dev/shm/proto";
 #endif //HAS_TRACEWRAP
 
 char *exec_path;
@@ -3626,6 +3627,13 @@ static void handle_arg_strace(const char *arg)
     do_strace = 1;
 }
 
+#ifdef HAS_TRACEWRAP
+static void handle_trace_filename(const char *arg)
+{
+    qemu_tracefilename = arg;
+}
+#endif //HAS_TRACEWRAP
+
 static void handle_arg_version(const char *arg)
 {
     printf("qemu-" TARGET_NAME " version " QEMU_VERSION QEMU_PKGVERSION
@@ -3680,6 +3688,10 @@ static const struct qemu_argument arg_table[] = {
      "",           "log system calls"},
     {"version",    "QEMU_VERSION",     false, handle_arg_version,
      "",           "display version information and exit"},
+#ifdef HAS_TRACEWRAP
+    {"tracefile",  "", true, handle_trace_filename,
+     "", "path to trace file (default: /dev/shm/proto)"},
+#endif //HAS_TRACEWRAP
     {NULL, NULL, false, NULL, NULL, NULL}
 };
 
@@ -3832,9 +3844,6 @@ int main(int argc, char **argv, char **envp)
     int ret;
     int execfd;
 
-#ifdef HAS_TRACEWRAP
-    do_qemu_set_trace("/dev/shm/proto");
-#endif //HAS_TRACEWRAP
     module_call_init(MODULE_INIT_QOM);
 
     qemu_init_auxval(envp);
@@ -3867,6 +3876,11 @@ int main(int argc, char **argv, char **envp)
 #endif
 
     optind = parse_args(argc, argv);
+
+#ifdef HAS_TRACEWRAP
+    //do_qemu_set_trace("/dev/shm/proto");
+    do_qemu_set_trace(qemu_tracefilename);
+#endif //HAS_TRACEWRAP
 
     /* Zero out regs */
     memset(regs, 0, sizeof(struct target_pt_regs));
