@@ -20,7 +20,7 @@ void do_qemu_set_trace(const char *tracefilename)
         cur_toc_entry = toc;
 }
 
-void qemu_trace_newframe(uint64_t addr, int thread_id) //, uint32_t insn /*should be bytes*/)
+void qemu_trace_newframe(uint64_t addr, int thread_id)
 {
     if (open_frame)
     {
@@ -40,11 +40,6 @@ void qemu_trace_newframe(uint64_t addr, int thread_id) //, uint32_t insn /*shoul
     sframe->address = addr;
     sframe->thread_id = thread_id;
 
-    //size_t len = sizeof(insn);
-    //sframe->rawbytes.len = len;
-    //sframe->rawbytes.data = (uint8_t *)malloc(len);
-    //memcpy(sframe->rawbytes.data, &insn, len);
-
     OperandValueList *ol_in = (OperandValueList *)malloc(sizeof(OperandValueList));
     operand_value_list__init(ol_in);
     ol_in->n_elem = 0;
@@ -56,10 +51,34 @@ void qemu_trace_newframe(uint64_t addr, int thread_id) //, uint32_t insn /*shoul
     sframe->operand_post_list = ol_out;
 }
 
+static inline void freeOperand(OperandInfo *oi)
+{
+    OperandInfoSpecific *ois = oi->operand_info_specific;
+
+    //Free reg-operand
+    RegOperand *ro = ois->reg_operand;
+    if (ro && ro->name)
+        free(ro->name);
+    free(ro);
+
+    //Free mem-operand
+    MemOperand *mo = ois->mem_operand;
+    free(mo);
+
+    free(oi->value.data);
+
+    free(ois);
+    free(oi->operand_usage);
+    free(oi);
+}
+
 void qemu_trace_add_operand(OperandInfo *oi, int inout)
 {
-    if (! open_frame)
+    if (! open_frame) {
+        if (oi)
+            freeOperand(oi);
         return;
+    }
     OperandValueList *ol;
     if (inout & 0x1)
     {
@@ -75,8 +94,9 @@ void qemu_trace_add_operand(OperandInfo *oi, int inout)
 
 void qemu_trace_endframe(CPUArchState *env, target_ulong pc, size_t size)
 {
-    if (! open_frame)
+    if (! open_frame) {
         return;
+    }
     int i = 0;
     StdFrame *sframe = g_frame->std_frame;
     sframe->rawbytes.len = size;
@@ -99,6 +119,20 @@ void qemu_trace_endframe(CPUArchState *env, target_ulong pc, size_t size)
 
     //counting num_frames in newframe does not work by far ... 
     //how comes? disas_arm_insn might not always return at the end?
+    for (i = 0; i < sframe->operand_pre_list->n_elem; i++)
+        freeOperand(sframe->operand_pre_list->elem[i]);
+    free(sframe->operand_pre_list->elem);
+    free(sframe->operand_pre_list);
+
+    for (i = 0; i < sframe->operand_post_list->n_elem; i++)
+        freeOperand(sframe->operand_post_list->elem[i]);
+    free(sframe->operand_post_list->elem);
+    free(sframe->operand_post_list);
+
+    free(sframe->rawbytes.data);
+    free(sframe);
+    free(g_frame);
+
     num_frames++;
     open_frame = 0;
 }
