@@ -67,6 +67,8 @@ static inline void freeOperand(OperandInfo *oi)
 
     free(oi->value.data);
 
+    free(oi->taint_info);
+
     free(ois);
     free(oi->operand_usage);
     free(oi);
@@ -86,6 +88,11 @@ void qemu_trace_add_operand(OperandInfo *oi, int inout)
     } else {
             ol = g_frame->std_frame->operand_post_list;
     }
+
+    oi->taint_info = (TaintInfo *)malloc(sizeof(TaintInfo));
+    taint_info__init(oi->taint_info); 
+    oi->taint_info->no_taint = 1;
+    oi->taint_info->has_no_taint = 1;
 
     ol->n_elem += 1;
     ol->elem = realloc(ol->elem, sizeof(OperandInfo *) * ol->n_elem);
