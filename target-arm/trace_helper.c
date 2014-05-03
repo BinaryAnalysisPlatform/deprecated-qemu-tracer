@@ -28,9 +28,9 @@ void HELPER(trace_cpsr_write)(CPUARMState *env, uint32_t val, uint32_t mask)
     qemu_trace_add_operand(oi, 0x2);
 }
 
-void HELPER(trace_newframe)(CPUARMState *env)
+void HELPER(trace_newframe)(target_ulong pc)
 {
-        qemu_trace_newframe(env->regs[15], 0);
+        qemu_trace_newframe(pc, 0);
 }
 
 void HELPER(trace_endframe)(CPUARMState *env, target_ulong old_pc, size_t size)

@@ -10878,7 +10878,9 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
         }
 
 #ifdef HAS_TRACEWRAP
-        gen_helper_trace_newframe(cpu_env);
+        TCGv t = tcg_const_i32(dc->pc);
+        gen_helper_trace_newframe(t);
+        tcg_temp_free(t);
         dc->old_pc = dc->pc;
 #endif //HAS_TRACEWRAP
         if (dc->thumb) {
