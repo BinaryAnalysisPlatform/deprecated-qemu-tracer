@@ -4727,6 +4727,11 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
                     /* xor reg, reg optimisation */
                     set_cc_op(s, CC_OP_CLR);
                     tcg_gen_movi_tl(cpu_T[0], 0);
+                    TCGv t = tcg_const_i32(reg);
+                    TCGv t0 = tcg_const_i32(0);
+                    gen_helper_trace_load_reg(t, t0);
+                    tcg_temp_free(t);
+                    tcg_temp_free(t0);
                     gen_op_mov_reg_v(ot, reg, cpu_T[0]);
                     break;
                 } else {

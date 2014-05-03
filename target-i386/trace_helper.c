@@ -5,7 +5,7 @@
 #include "tracewrap.h"
 #include "qemu/log.h"
 
-const char *regs[8] = {"EAX", "ECX", "EDX", "EBX", "ESP", "EBP", "ESI", "EDI"};
+const char *regs[8] = {"EAX_32", "ECX_32", "EDX_32", "EBX_32", "ESP_32", "EBP_32", "ESI_32", "EDI_32"};
 
 void HELPER(trace_newframe)(target_ulong pc)
 {
@@ -23,8 +23,8 @@ OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
         RegOperand * ro = (RegOperand *)malloc(sizeof(RegOperand));
         reg_operand__init(ro);
 
-        char * reg_name = (char *)malloc(8);
-        sprintf(reg_name, "%s", (reg < CPU_NB_REGS) ? regs[reg] : "EFLAGS");//"r%02d", reg);
+        char * reg_name = (char *)malloc(12);
+        sprintf(reg_name, "R_%s", (reg < CPU_NB_REGS) ? regs[reg] : "EFLAGS");//"r%02d", reg);
         ro->name = reg_name;
 
         OperandInfoSpecific *ois = (OperandInfoSpecific *)malloc(sizeof(OperandInfoSpecific));
@@ -41,7 +41,7 @@ OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
         }
         OperandInfo *oi = (OperandInfo *)malloc(sizeof(OperandInfo));
         operand_info__init(oi);
-        oi->bit_length = 0;
+        oi->bit_length = 32;
         oi->operand_info_specific = ois;
         oi->operand_usage = ou;
         oi->value.len = 4;
@@ -104,7 +104,7 @@ OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls)
         }
         OperandInfo *oi = (OperandInfo *)malloc(sizeof(OperandInfo));
         operand_info__init(oi);
-        oi->bit_length = 0;
+        oi->bit_length = 32;
         oi->operand_info_specific = ois;
         oi->operand_usage = ou;
         oi->value.len = 4;
