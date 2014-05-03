@@ -7,15 +7,15 @@
 
 const char *regs[8] = {"EAX", "ECX", "EDX", "EBX", "ESP", "EBP", "ESI", "EDI"};
 
-void HELPER(trace_newframe)(CPUX86State *env)
+void HELPER(trace_newframe)(target_ulong pc)
 {
-	qemu_trace_newframe(env->eip, 0);
+    qemu_trace_newframe(pc, 0);
 }
 
 void HELPER(trace_endframe)(CPUX86State *env, target_ulong old_pc, size_t size)
 {
-	//qemu_trace_endframe(env, env->eip - size, size);
-	qemu_trace_endframe(env, old_pc, size);
+    //qemu_trace_endframe(env, env->eip - size, size);
+    qemu_trace_endframe(env, old_pc, size);
 }
 
 OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
