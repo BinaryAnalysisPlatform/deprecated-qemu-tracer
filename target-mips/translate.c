@@ -15897,7 +15897,9 @@ gen_intermediate_code_internal(MIPSCPU *cpu, TranslationBlock *tb,
             ctx.opcode = cpu_ldl_code(env, ctx.pc);
             insn_bytes = 4;
 #ifdef HAS_TRACEWRAP
-            gen_helper_trace_newframe(cpu_env);
+            TCGv t = tcg_const_i32(ctx.pc);
+            gen_helper_trace_newframe(t);
+            tcg_temp_free(t);
             ctx.old_pc = ctx.pc;
             ctx.insn_size = 4;
 #endif //HAS_TRACEWRAP
