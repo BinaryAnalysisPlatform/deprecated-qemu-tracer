@@ -377,7 +377,7 @@ static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg)
     }
 #ifdef HAS_TRACEWRAP
     TCGv t = tcg_const_i32(reg);
-    gen_helper_trace_load_reg(t, t0);
+    gen_helper_trace_load_reg(t, cpu_regs[reg]);
     tcg_temp_free(t);
 #endif //HAS_TRACEWRAP
 }
@@ -2016,17 +2016,13 @@ static void gen_lea_modrm(CPUX86State *env, DisasContext *s, int modrm)
 #ifdef HAS_TRACEWRAP
         if (base >= 0) {
             TCGv t = tcg_const_i32(base);
-            TCGv t1 = tcg_const_i32(env->regs[base]);
-            gen_helper_trace_load_reg(t, t1);
+            gen_helper_trace_load_reg(t, cpu_regs[base]);
             tcg_temp_free(t);
-            tcg_temp_free(t1);
         }
         if (index >= 0) {
             TCGv t = tcg_const_i32(index);
-            TCGv t1 = tcg_const_i32(env->regs[index]);
-            gen_helper_trace_load_reg(t, t1);
+            gen_helper_trace_load_reg(t, cpu_regs[index]);
             tcg_temp_free(t);
-            tcg_temp_free(t1);
         }
 #endif //HAS_TRACEWRAP
 
@@ -2198,10 +2194,8 @@ static void gen_ldst_modrm(CPUX86State *env, DisasContext *s, int modrm,
 
 #ifdef HAS_TRACEWRAP
     TCGv t = tcg_const_i32(rm);
-    TCGv t1 = tcg_const_i32(env->regs[rm]);
-    gen_helper_trace_load_reg(t, t1);
+    gen_helper_trace_load_reg(t, cpu_regs[rm]);
     tcg_temp_free(t);
-    tcg_temp_free(t1);
 #endif //HAS_TRACEWRAP
 
    if (mod == 3) {
@@ -4728,10 +4722,8 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
                     set_cc_op(s, CC_OP_CLR);
                     tcg_gen_movi_tl(cpu_T[0], 0);
                     TCGv t = tcg_const_i32(reg);
-                    TCGv t0 = tcg_const_i32(0);
-                    gen_helper_trace_load_reg(t, t0);
+                    gen_helper_trace_load_reg(t, cpu_regs[reg]);
                     tcg_temp_free(t);
-                    tcg_temp_free(t0);
                     gen_op_mov_reg_v(ot, reg, cpu_T[0]);
                     break;
                 } else {
