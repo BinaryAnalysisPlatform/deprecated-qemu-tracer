@@ -331,25 +331,56 @@ static inline TCGMemOp mo_b_d32(int b, TCGMemOp ot)
 {
     return b & 1 ? (ot == MO_16 ? MO_16 : MO_32) : MO_8;
 }
+#ifdef HAS_TRACEWRAP
+static inline void tcg_gen_deposit_wrap(TCGv_i32 ret, TCGv_i32 arg1,
+                                       TCGv_i32 arg2, unsigned int ofs,
+                                       unsigned int len, int reg);
+
+static inline void tcg_gen_deposit_wrap(TCGv_i32 ret, TCGv_i32 arg1,
+                                       TCGv_i32 arg2, unsigned int ofs,
+                                       unsigned int len, int reg)
+{
+    gen_helper_trace_load_reg(reg, arg2);
+    tcg_gen_deposit_tl(ret, arg1, arg2, ofs, len);
+}
+#endif //HAS_TRACEWRAP
 
 //Store into register (post-state)
 static void gen_op_mov_reg_v(TCGMemOp ot, int reg, TCGv t0)
 {
 #ifdef HAS_TRACEWRAP
-    TCGv t = tcg_const_i32(reg);
+    TCGv t;
+    if ((ot == MO_8) && (byte_reg_is_xH(reg)))
+    {
+            t = tcg_const_i32(reg - 4);
+    } else {
+            t = tcg_const_i32(reg);
+    }
     gen_helper_trace_store_reg(t, t0);
     tcg_temp_free(t);
 #endif //HAS_TRACEWRAP
     switch(ot) {
     case MO_8:
         if (!byte_reg_is_xH(reg)) {
+#ifdef HAS_TRACEWRAP
+            tcg_gen_deposit_wrap(cpu_regs[reg], cpu_regs[reg], t0, 0, 8, reg);
+#else
             tcg_gen_deposit_tl(cpu_regs[reg], cpu_regs[reg], t0, 0, 8);
+#endif //HAS_TRACEWRAP
         } else {
+#ifdef HAS_TRACEWRAP
+            tcg_gen_deposit_wrap(cpu_regs[reg - 4], cpu_regs[reg - 4], t0, 8, 8, reg - 4);
+#else
             tcg_gen_deposit_tl(cpu_regs[reg - 4], cpu_regs[reg - 4], t0, 8, 8);
+#endif //HAS_TRACEWRAP
         }
         break;
     case MO_16:
+#ifdef HAS_TRACEWRAP
+        tcg_gen_deposit_wrap(cpu_regs[reg], cpu_regs[reg], t0, 0, 16, reg);
+#else
         tcg_gen_deposit_tl(cpu_regs[reg], cpu_regs[reg], t0, 0, 16);
+#endif //HAS_TRACEWRAP
         break;
     case MO_32:
         /* For x86_64, this sets the higher half of register to zero.
@@ -372,14 +403,19 @@ static inline void gen_op_mov_v_reg(TCGMemOp ot, TCGv t0, int reg)
     if (ot == MO_8 && byte_reg_is_xH(reg)) {
         tcg_gen_shri_tl(t0, cpu_regs[reg - 4], 8);
         tcg_gen_ext8u_tl(t0, t0);
+#ifdef HAS_TRACEWRAP
+    TCGv t = tcg_const_i32(reg - 4);
+    gen_helper_trace_load_reg(t, cpu_regs[reg - 4]);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
     } else {
         tcg_gen_mov_tl(t0, cpu_regs[reg]);
-    }
 #ifdef HAS_TRACEWRAP
     TCGv t = tcg_const_i32(reg);
     gen_helper_trace_load_reg(t, cpu_regs[reg]);
     tcg_temp_free(t);
 #endif //HAS_TRACEWRAP
+    }
 }
 
 static inline void gen_op_movl_A0_reg(int reg)
