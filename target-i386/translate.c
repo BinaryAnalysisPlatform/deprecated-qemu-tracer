@@ -28,6 +28,10 @@
 #include "disas/disas.h"
 #include "tcg-op.h"
 
+#ifdef HAS_TRACEWRAP
+#include "tracewrap.h"
+#endif //HAS_TRACEWRAP
+
 #include "helper.h"
 #define GEN_HELPER 1
 #include "helper.h"
@@ -340,7 +344,9 @@ static inline void tcg_gen_deposit_wrap(TCGv_i32 ret, TCGv_i32 arg1,
                                        TCGv_i32 arg2, unsigned int ofs,
                                        unsigned int len, int reg)
 {
-    gen_helper_trace_load_reg(reg, arg2);
+    TCGv t = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(t, arg2);
+    tcg_temp_free(t);
     tcg_gen_deposit_tl(ret, arg1, arg2, ofs, len);
 }
 #endif //HAS_TRACEWRAP
@@ -2350,6 +2356,11 @@ static void gen_cmovcc1(CPUX86State *env, DisasContext *s, TCGMemOp ot, int b,
                         int modrm, int reg)
 {
     CCPrepare cc;
+#ifdef HAS_TRACEWRAP
+    TCGv t  = tcg_const_i32(reg);
+    gen_helper_trace_load_reg(t, cpu_regs[reg]);
+    tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
 
     gen_ldst_modrm(env, s, modrm, ot, OR_TMP0, 0);
 
@@ -4556,7 +4567,10 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         tcg_gen_debug_insn_start(pc_start);
     }
     s->pc = pc_start;
+#ifdef HAS_TRACEWRAP
     s->insn_size = 0;
+    TCGv myt;
+#endif //HAS_TRACEWRAP
     prefixes = 0;
     s->override = -1;
     rex_w = -1;
@@ -4577,9 +4591,19 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
     switch (b) {
     case 0xf3:
         prefixes |= PREFIX_REPZ;
+#ifdef HAS_TRACEWRAP
+        myt = tcg_const_i32(R_ECX);
+        gen_helper_trace_load_reg(myt,cpu_regs[R_ECX]);
+        tcg_temp_free(myt);
+#endif //HAS_TRACEWRAP
         goto next_byte;
     case 0xf2:
         prefixes |= PREFIX_REPNZ;
+#ifdef HAS_TRACEWRAP
+        myt = tcg_const_i32(R_ECX);
+        gen_helper_trace_load_reg(myt,cpu_regs[R_ECX]);
+        tcg_temp_free(myt);
+#endif //HAS_TRACEWRAP
         goto next_byte;
     case 0xf0:
         prefixes |= PREFIX_LOCK;
@@ -4601,6 +4625,13 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         goto next_byte;
     case 0x65:
         s->override = R_GS;
+#ifdef HAS_TRACEWRAP
+        TCGv t = tcg_const_i32(R_GS | (1 << SEG_BIT));
+        TCGv t0 = tcg_const_i32(env->segs[R_GS].base);
+        gen_helper_trace_load_reg(t, t0);
+        tcg_temp_free(t);
+        tcg_temp_free(t0);
+#endif //HAS_TRACEWRAP
         goto next_byte;
     case 0x66:
         prefixes |= PREFIX_DATA;
@@ -4920,12 +4951,25 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             case MO_32:
                 tcg_gen_trunc_tl_i32(cpu_tmp2_i32, cpu_T[0]);
                 tcg_gen_trunc_tl_i32(cpu_tmp3_i32, cpu_regs[R_EAX]);
+#ifdef HAS_TRACEWRAP
+                TCGv t = tcg_const_i32(R_EAX);
+                gen_helper_trace_load_reg(t, cpu_regs[R_EAX]);
+                tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
                 tcg_gen_mulu2_i32(cpu_tmp2_i32, cpu_tmp3_i32,
                                   cpu_tmp2_i32, cpu_tmp3_i32);
                 tcg_gen_extu_i32_tl(cpu_regs[R_EAX], cpu_tmp2_i32);
                 tcg_gen_extu_i32_tl(cpu_regs[R_EDX], cpu_tmp3_i32);
                 tcg_gen_mov_tl(cpu_cc_dst, cpu_regs[R_EAX]);
                 tcg_gen_mov_tl(cpu_cc_src, cpu_regs[R_EDX]);
+#ifdef HAS_TRACEWRAP
+                t = tcg_const_i32(R_EAX);
+                gen_helper_trace_store_reg(t, cpu_regs[R_EAX]);
+                tcg_temp_free(t);
+                t = tcg_const_i32(R_EDX);
+                gen_helper_trace_store_reg(t, cpu_regs[R_EDX]);
+                tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
                 set_cc_op(s, CC_OP_MULL);
                 break;
 #ifdef TARGET_X86_64
@@ -4971,6 +5015,11 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             case MO_32:
                 tcg_gen_trunc_tl_i32(cpu_tmp2_i32, cpu_T[0]);
                 tcg_gen_trunc_tl_i32(cpu_tmp3_i32, cpu_regs[R_EAX]);
+#ifdef HAS_TRACEWRAP
+                TCGv t = tcg_const_i32(R_EAX);
+                gen_helper_trace_load_reg(t, cpu_regs[R_EAX]);
+                tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
                 tcg_gen_muls2_i32(cpu_tmp2_i32, cpu_tmp3_i32,
                                   cpu_tmp2_i32, cpu_tmp3_i32);
                 tcg_gen_extu_i32_tl(cpu_regs[R_EAX], cpu_tmp2_i32);
@@ -4979,6 +5028,15 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
                 tcg_gen_mov_tl(cpu_cc_dst, cpu_regs[R_EAX]);
                 tcg_gen_sub_i32(cpu_tmp2_i32, cpu_tmp2_i32, cpu_tmp3_i32);
                 tcg_gen_extu_i32_tl(cpu_cc_src, cpu_tmp2_i32);
+#ifdef HAS_TRACEWRAP
+                t = tcg_const_i32(R_EAX);
+                gen_helper_trace_store_reg(t, cpu_regs[R_EAX]);
+                tcg_temp_free(t);
+                t = tcg_const_i32(R_EDX);
+                gen_helper_trace_store_reg(t, cpu_regs[R_EDX]);
+                tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
+
                 set_cc_op(s, CC_OP_MULL);
                 break;
 #ifdef TARGET_X86_64
@@ -5006,7 +5064,20 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             default:
             case MO_32:
                 gen_jmp_im(pc_start - s->cs_base);
+#ifdef HAS_TRACEWRAP
+                TCGv t = tcg_const_i32(R_EAX);
+                gen_helper_trace_load_reg(t, cpu_regs[R_EAX]);
+                tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
                 gen_helper_divl_EAX(cpu_env, cpu_T[0]);
+#ifdef HAS_TRACEWRAP
+                t = tcg_const_i32(R_EAX);
+                gen_helper_trace_load_reg(t, cpu_regs[R_EAX]);
+                tcg_temp_free(t);
+                t = tcg_const_i32(R_EDX);
+                gen_helper_trace_load_reg(t, cpu_regs[R_EDX]);
+                tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
                 break;
 #ifdef TARGET_X86_64
             case MO_64:
@@ -5332,6 +5403,11 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
             }
             label1 = gen_new_label();
             tcg_gen_mov_tl(t2, cpu_regs[R_EAX]);
+#ifdef HAS_TRACEWRAP
+            TCGv t = tcg_const_i32(R_EAX);
+            gen_helper_trace_load_reg(t, cpu_regs[R_EAX]);
+            tcg_temp_free(t);
+#endif //HAS_TRACEWRAP
             gen_extu(ot, t0);
             gen_extu(ot, t2);
             tcg_gen_brcond_tl(TCG_COND_EQ, t2, t0, label1);
@@ -5846,6 +5922,11 @@ static target_ulong disas_insn(CPUX86State *env, DisasContext *s,
         shift = 1;
         goto do_shiftd;
     case 0x1ad: /* shrd cl */
+#ifdef HAS_TRACEWRAP
+            myt = tcg_const_i32(R_ECX);
+            gen_helper_trace_load_reg(myt,cpu_regs[R_ECX]);
+            tcg_temp_free(myt);
+#endif //HAS_TRACEWRAP
         op = 1;
         shift = 0;
     do_shiftd:
