@@ -13,7 +13,7 @@ $(FILENAME).$(EXT).c:
 	sed -i 's/ProtobufCMessage base;/ProtobufCMessage __base;/g' $(FILENAME).$(EXT).[ch]
 
 $(FILENAME).$(EXT).o: $(FILENAME).$(EXT).c $(FILENAME).$(EXT).h
-	$(CC) -c -o $(FILENAME).$(EXT).o $(FILENAME).$(EXT).c
+	$(CC) -fPIC -c -o $(FILENAME).$(EXT).o $(FILENAME).$(EXT).c
 
 libtrace.a: $(FILENAME).$(EXT).o
 	ar rcs libtrace.a $(FILENAME).$(EXT).o
