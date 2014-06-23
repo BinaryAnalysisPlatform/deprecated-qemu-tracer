@@ -33,7 +33,7 @@ void HELPER(trace_newframe)(target_ulong pc)
         qemu_trace_newframe(pc, 0);
 }
 
-void HELPER(trace_endframe)(CPUARMState *env, target_ulong old_pc, size_t size)
+void HELPER(trace_endframe)(CPUARMState *env, target_ulong old_pc, uint32_t size)
 {
         qemu_trace_endframe(env, old_pc, size);
 }
