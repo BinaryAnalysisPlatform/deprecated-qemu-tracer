@@ -15,6 +15,10 @@ void do_qemu_set_trace(const char *tracefilename)
 {
         printf("Setting qemu_tracefile at %s\n", tracefilename);
         qemu_tracefile = fopen(tracefilename, "wb");
+        if (qemu_tracefile == NULL) {
+          fprintf(stderr, "Could not open qemu_tracefile %s (%s)\n", tracefilename, strerror(errno));
+          exit(1);
+        }
         fseek(qemu_tracefile, first_frame_offset, SEEK_SET);
         toc = (struct toc_entry *)malloc(sizeof(struct toc_entry));
         cur_toc_entry = toc;
