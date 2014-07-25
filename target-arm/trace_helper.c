@@ -75,7 +75,38 @@ OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
         reg_operand__init(ro);
 
         char * reg_name = (char *)malloc(4);
-        sprintf(reg_name, "r%02d", reg);
+	switch (reg) {
+	case REG_SP:
+	  sprintf(reg_name, "SP");
+	  break;
+	case REG_LR:
+	  sprintf(reg_name, "LR");
+	  break;
+	case REG_PC:
+	  sprintf(reg_name, "PC");
+	  break;
+	case REG_NF:
+	  sprintf(reg_name, "NF");
+	  break;
+	case REG_ZF:
+	  sprintf(reg_name, "ZF");
+	  break;
+	case REG_CF:
+	  sprintf(reg_name, "CF");
+	  break;
+	case REG_VF:
+	  sprintf(reg_name, "VF");
+	  break;
+	case REG_QF:
+	  sprintf(reg_name, "QF");
+	  break;
+	case REG_GE:
+	  sprintf(reg_name, "GE");
+	  break;
+	default:
+	  sprintf(reg_name, "R%d", reg);
+	  break;
+	}
         ro->name = reg_name;
 
         OperandInfoSpecific *ois = (OperandInfoSpecific *)malloc(sizeof(OperandInfoSpecific));
@@ -104,19 +135,49 @@ OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls)
 
 void HELPER(log_store_cpsr)(CPUARMState *env)
 {
+        OperandInfo *oi;
         uint32_t val = cpsr_read(env);
 
-        OperandInfo * oi = load_store_reg(REG_APSR, val, 1);
+	oi = load_store_reg(REG_NF, (val >> 31) & 0x1, 1);
+        qemu_trace_add_operand(oi, 0x2);
 
+	oi = load_store_reg(REG_ZF, (val >> 30) & 0x1, 1);
+        qemu_trace_add_operand(oi, 0x2);
+
+	oi = load_store_reg(REG_CF, (val >> 29) & 0x1, 1);
+        qemu_trace_add_operand(oi, 0x2);
+
+	oi = load_store_reg(REG_VF, (val >> 28) & 0x1, 1);
+        qemu_trace_add_operand(oi, 0x2);
+
+	oi = load_store_reg(REG_QF, (val >> 27) & 0x1, 1);
+        qemu_trace_add_operand(oi, 0x2);
+
+	oi = load_store_reg(REG_GE, (val >> 19) & 0xF, 1);
         qemu_trace_add_operand(oi, 0x2);
 }
 
 void HELPER(log_read_cpsr)(CPUARMState *env)
 {
+        OperandInfo *oi;
         uint32_t val = cpsr_read(env);
 
-        OperandInfo * oi = load_store_reg(REG_APSR, val, 0);
+	oi = load_store_reg(REG_NF, (val >> 31) & 0x1, 0);
+        qemu_trace_add_operand(oi, 0x1);
 
+	oi = load_store_reg(REG_ZF, (val >> 30) & 0x1, 0);
+        qemu_trace_add_operand(oi, 0x1);
+
+	oi = load_store_reg(REG_CF, (val >> 29) & 0x1, 0);
+        qemu_trace_add_operand(oi, 0x1);
+
+	oi = load_store_reg(REG_VF, (val >> 28) & 0x1, 0);
+        qemu_trace_add_operand(oi, 0x1);
+
+	oi = load_store_reg(REG_QF, (val >> 27) & 0x1, 0);
+        qemu_trace_add_operand(oi, 0x1);
+
+	oi = load_store_reg(REG_GE, (val >> 19) & 0xF, 0);
         qemu_trace_add_operand(oi, 0x1);
 }
 

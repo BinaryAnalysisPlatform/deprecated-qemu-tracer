@@ -29,4 +29,15 @@ OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls);
 #define REG_LO 33
 #define REG_HI 34
 
+#define REG_SP 13
+#define REG_LR 14
+#define REG_PC 15
+
+#define REG_NF 94
+#define REG_ZF 95
+#define REG_CF 96
+#define REG_VF 97
+#define REG_QF 98
+#define REG_GE 99
+
 #define SEG_BIT 8
