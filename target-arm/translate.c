@@ -78,6 +78,11 @@ static const char *regnames[] =
     { "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
       "r8", "r9", "r10", "r11", "r12", "r13", "r14", "pc" };
 
+#ifdef HAS_TRACEWRAP
+/* Set to 1 if an instruction affects cpsr. */
+static int store_cpsr = 0;
+#endif //HAS_TRACEWRAP
+
 /* initialize TCG globals.  */
 void arm_translate_init(void)
 {
@@ -358,7 +363,7 @@ static void gen_set_CF_bit31(TCGv_i32 var)
 {
     tcg_gen_shri_i32(cpu_CF, var, 31);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -368,7 +373,7 @@ static inline void gen_logic_CC(TCGv_i32 var)
     tcg_gen_mov_i32(cpu_NF, var);
     tcg_gen_mov_i32(cpu_ZF, var);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -378,7 +383,7 @@ static void gen_adc(TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_add_i32(t0, t0, t1);
     tcg_gen_add_i32(t0, t0, cpu_CF);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -388,7 +393,7 @@ static void gen_add_carry(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_add_i32(dest, t0, t1);
     tcg_gen_add_i32(dest, dest, cpu_CF);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -399,7 +404,7 @@ static void gen_sub_carry(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_gen_add_i32(dest, dest, cpu_CF);
     tcg_gen_subi_i32(dest, dest, 1);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -416,7 +421,7 @@ static void gen_add_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_temp_free_i32(tmp);
     tcg_gen_mov_i32(dest, cpu_NF);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -447,7 +452,7 @@ static void gen_adc_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_temp_free_i32(tmp);
     tcg_gen_mov_i32(dest, cpu_NF);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -465,7 +470,7 @@ static void gen_sub_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     tcg_temp_free_i32(tmp);
     tcg_gen_mov_i32(dest, cpu_NF);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -477,7 +482,7 @@ static void gen_sbc_CC(TCGv_i32 dest, TCGv_i32 t0, TCGv_i32 t1)
     gen_adc_CC(dest, t0, tmp);
     tcg_temp_free_i32(tmp);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -533,7 +538,7 @@ static void shifter_out_im(TCGv_i32 var, int shift)
         }
     }
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -586,7 +591,7 @@ static inline void gen_arm_shift_im(TCGv_i32 var, int shiftop,
         }
     }
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 };
 
@@ -7133,7 +7138,7 @@ static void gen_logicq_cc(TCGv_i32 lo, TCGv_i32 hi)
     tcg_gen_mov_i32(cpu_NF, hi);
     tcg_gen_or_i32(cpu_ZF, lo, hi);
 #ifdef HAS_TRACEWRAP
-    gen_helper_log_store_cpsr(cpu_env);
+    store_cpsr = 1;
 #endif //HAS_TRACEWRAP
 }
 
@@ -7362,6 +7367,10 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
     TCGv_i64 tmp64;
 
     insn = arm_ldl_code(env, s->pc, s->bswap_code);
+
+#ifdef HAS_TRACEWRAP
+    store_cpsr = 0;
+#endif //HAS_TRACEWRAP
 
     s->pc += 4;
     s->insn_size = 4;
@@ -8737,6 +8746,11 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
             break;
         }
     }
+#ifdef HAS_TRACEWRAP
+    if (store_cpsr) {
+      gen_helper_log_store_cpsr(cpu_env);
+    }
+#endif //HAS_TRACEWRAP
 
     return;
 }
