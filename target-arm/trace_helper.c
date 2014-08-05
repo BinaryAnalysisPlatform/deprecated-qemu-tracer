@@ -5,6 +5,7 @@
 #include "helper.h"
 #include "tracewrap.h"
 #include "qemu/log.h"
+#include "tcg.h"
 
 uint32_t HELPER(trace_cpsr_read)(CPUARMState *env)
 {
@@ -38,7 +39,7 @@ void HELPER(trace_endframe)(CPUARMState *env, target_ulong old_pc, uint32_t size
         qemu_trace_endframe(env, old_pc, size);
 }
 
-OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls)
+OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls, int len)
 {
         MemOperand * mo = (MemOperand *)malloc(sizeof(MemOperand));
         mem_operand__init(mo);
@@ -62,9 +63,9 @@ OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls)
         oi->bit_length = 0;
         oi->operand_info_specific = ois;
         oi->operand_usage = ou;
-        oi->value.len = 4;
+        oi->value.len = len;
         oi->value.data = malloc(oi->value.len);
-        memcpy(oi->value.data, &val, 4);
+        memcpy(oi->value.data, &val, len);
 
         return oi;
 }
@@ -199,20 +200,53 @@ void HELPER(trace_store_reg)(uint32_t reg, uint32_t val)
         qemu_trace_add_operand(oi, 0x2);
 }
 
-void HELPER(trace_ld)(CPUARMState *env, uint32_t val, uint32_t addr)
+void HELPER(trace_ld)(CPUARMState *env, uint32_t val, uint32_t addr, uint32_t opc)
 {
+	int len;
         qemu_log("This was a read 0x%x addr:0x%x value:0x%x\n", env->regs[15], addr, val);
-
-        OperandInfo *oi = load_store_mem(addr, val, 0);
+	switch (opc & MO_SIZE) {
+	case MO_8:
+	  len = 1;
+	  break;
+	case MO_16:
+	  len = 2;
+	  break;
+	case MO_32:
+	  len = 4;
+	  break;
+	case MO_64:
+	  len = 8;
+	  break;
+	default:
+	  qemu_log("Do not reach\n");
+	}
+        OperandInfo *oi = load_store_mem(addr, val, 0, len);
 
         qemu_trace_add_operand(oi, 0x1);
 }
 
-void HELPER(trace_st)(CPUARMState *env, uint32_t val, uint32_t addr)
+void HELPER(trace_st)(CPUARMState *env, uint32_t val, uint32_t addr, uint32_t opc)
 {
+        int len;
         qemu_log("This was a store 0x%x addr:0x%x value:0x%x\n", env->regs[15], addr, val);
 
-        OperandInfo *oi = load_store_mem(addr, val, 1);
+	switch (opc & MO_SIZE) {
+	case MO_8:
+	  len = 1;
+	  break;
+	case MO_16:
+	  len = 2;
+	  break;
+	case MO_32:
+	  len = 4;
+	  break;
+	case MO_64:
+	  len = 8;
+	  break;
+	default:
+	  qemu_log("Do not reach\n");
+	}
+        OperandInfo *oi = load_store_mem(addr, val, 1, len);
 
         qemu_trace_add_operand(oi, 0x2);
 }

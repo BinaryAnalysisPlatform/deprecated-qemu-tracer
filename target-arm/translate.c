@@ -891,14 +891,14 @@ static inline void gen_aa32_st##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
 static inline void gen_aa32_ld##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
 {                                                                        \
     tcg_gen_qemu_ld_i32(val, addr, index, OPC);                          \
-    gen_helper_trace_ld(cpu_env, val, addr);                               \
+    gen_helper_trace_ld(cpu_env, val, addr, tcg_const_i32(OPC));	\
 }
 
 #define DO_GEN_ST(SUFF, OPC)                                             \
 static inline void gen_aa32_st##SUFF(TCGv_i32 val, TCGv_i32 addr, int index) \
 {                                                                        \
     tcg_gen_qemu_st_i32(val, addr, index, OPC);                          \
-    gen_helper_trace_st(cpu_env, val, addr);                               \
+    gen_helper_trace_st(cpu_env, val, addr, tcg_const_i32(OPC));	\
 }
 #endif //HAS_TRACEWRAP
 

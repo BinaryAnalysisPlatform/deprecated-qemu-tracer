@@ -21,7 +21,7 @@ void qemu_trace_endframe(CPUArchState *env, target_ulong pc, size_t size);
 void qemu_trace_finish(uint32_t exit_code);
 
 OperandInfo * load_store_reg(uint32_t reg, uint32_t val, int ls);
-OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls);
+OperandInfo * load_store_mem(uint32_t addr, uint32_t val, int ls, int len);
 
 #define REG_CPSR 64
 #define REG_APSR 65
