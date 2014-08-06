@@ -7,8 +7,11 @@ EXT=pb-c
 
 all: libtrace.a
 
-$(FILENAME).$(EXT).c:
-	protoc-c --c_out=. -I$(TRACEWRAP_DIR) $(TRACEWRAP_DIR)/$(FILENAME).proto
+$(FILENAME).proto:
+	piqi to-proto $(TRACEWRAP_DIR)/$(FILENAME) -o $(FILENAME).proto
+
+$(FILENAME).$(EXT).c: $(FILENAME).proto
+	protoc-c --c_out=. $(FILENAME).proto
 	sed -i 's/->base/->__base/g' $(FILENAME).$(EXT).[ch]
 	sed -i 's/ProtobufCMessage base;/ProtobufCMessage __base;/g' $(FILENAME).$(EXT).[ch]
 
